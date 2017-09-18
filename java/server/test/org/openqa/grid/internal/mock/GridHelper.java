@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 package org.openqa.grid.internal.mock;
 
 import static org.mockito.Mockito.mock;
@@ -62,19 +61,12 @@ public class GridHelper {
     return new SeleniumBasedRequest(request, registry, type, desiredCapability) {
 
       @Override
-      public String getNewSessionRequestedCapability(TestSession session) {
-        return null;
-      }
-
-      @Override
       public ExternalSessionKey extractSession() {
-        // TODO Auto-generated method stub
         return null;
       }
 
       @Override
       public RequestType extractRequestType() {
-        // TODO Auto-generated method stub
         return null;
       }
 

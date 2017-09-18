@@ -121,7 +121,7 @@ namespace OpenQA.Selenium.Firefox
         /// </summary>
         /// <param name="capabilities">The <see cref="ICapabilities"/> object containing the desired
         /// capabilities of this FirefoxDriver.</param>
-        [Obsolete("FirefoxDriver should not be constructed with a raw ICapabilities or DesiredCapabilities object. Use FirefoxOptions instead. This constructor will be removed before the 3.0 release.")]
+        [Obsolete("FirefoxDriver should not be constructed with a raw ICapabilities or DesiredCapabilities object. Use FirefoxOptions instead. This constructor will be removed in a future release.")]
         public FirefoxDriver(ICapabilities capabilities)
             : this(CreateOptionsFromCapabilities(capabilities))
         {
@@ -134,7 +134,7 @@ namespace OpenQA.Selenium.Firefox
         /// environmental settings used when running Firefox.</param>
         /// <param name="profile">A <see cref="FirefoxProfile"/> object representing the profile settings
         /// to be used in starting Firefox.</param>
-        [Obsolete("FirefoxDriver should not be constructed with a FirefoxBinary object. Use FirefoxOptions instead. This constructor will be removed before the 3.0 release.")]
+        [Obsolete("FirefoxDriver should not be constructed with a FirefoxBinary object. Use FirefoxOptions instead. This constructor will be removed in a future release.")]
         public FirefoxDriver(FirefoxBinary binary, FirefoxProfile profile)
             : this(new FirefoxOptions(profile, binary))
         {
@@ -148,7 +148,7 @@ namespace OpenQA.Selenium.Firefox
         /// <param name="profile">A <see cref="FirefoxProfile"/> object representing the profile settings
         /// to be used in starting Firefox.</param>
         /// <param name="commandTimeout">The maximum amount of time to wait for each command.</param>
-        [Obsolete("FirefoxDriver should not be constructed  with a FirefoxBinary object. Use FirefoxOptions instead. This constructor will be removed before the 3.0 release.")]
+        [Obsolete("FirefoxDriver should not be constructed  with a FirefoxBinary object. Use FirefoxOptions instead. This constructor will be removed in a future release.")]
         public FirefoxDriver(FirefoxBinary binary, FirefoxProfile profile, TimeSpan commandTimeout)
             : this(null, new FirefoxOptions(profile, binary), commandTimeout)
         {
@@ -159,7 +159,7 @@ namespace OpenQA.Selenium.Firefox
         /// </summary>
         /// <param name="options">The <see cref="FirefoxOptions"/> to be used with the Firefox driver.</param>
         public FirefoxDriver(FirefoxOptions options)
-            : this(FirefoxDriverService.CreateDefaultService(), options, RemoteWebDriver.DefaultCommandTimeout)
+            : this(CreateService(options), options, RemoteWebDriver.DefaultCommandTimeout)
         {
         }
 
@@ -381,6 +381,16 @@ namespace OpenQA.Selenium.Firefox
             }
 
             return profile;
+        }
+
+        private static FirefoxDriverService CreateService(FirefoxOptions options)
+        {
+            if (options != null && options.UseLegacyImplementation)
+            {
+                return null;
+            }
+
+            return FirefoxDriverService.CreateDefaultService();
         }
     }
 }

@@ -17,33 +17,63 @@
 
 package org.openqa.selenium.safari;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import org.openqa.selenium.WebDriverException;
+import org.openqa.selenium.net.PortProber;
 import org.openqa.selenium.remote.service.DriverService;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 
 public class SafariDriverService extends DriverService {
 
   private static final File SAFARI_DRIVER_EXECUTABLE = new File("/usr/bin/safaridriver");
+  private static final File TP_SAFARI_DRIVER_EXECUTABLE =
+    new File("/Applications/Safari Technology Preview.app/Contents/MacOS/safaridriver");
 
   public SafariDriverService(File executable, int port, ImmutableList<String> args,
                              ImmutableMap<String, String> environment) throws IOException {
     super(executable, port, args, environment);
   }
 
+  public static SafariDriverService createDefaultService() {
+    return createDefaultService(new SafariOptions());
+  }
+
   public static SafariDriverService createDefaultService(SafariOptions options) {
-    if (SAFARI_DRIVER_EXECUTABLE.exists()) {
-      return new Builder().usingPort(options.getPort()).build();
+    File exe = options.getUseTechnologyPreview() ?
+               TP_SAFARI_DRIVER_EXECUTABLE : SAFARI_DRIVER_EXECUTABLE;
+    if (exe.exists()) {
+      return new Builder().usingPort(options.getPort()).usingDriverExecutable(exe).build();
     }
     return null;
   }
 
+  @Override
+  protected void waitUntilAvailable() throws MalformedURLException {
+    try {
+      PortProber.waitForPortUp(getUrl().getPort(), 20, SECONDS);
+    } catch (RuntimeException e) {
+      throw new WebDriverException(e);
+    }
+  }
+
   public static class Builder extends DriverService.Builder<
     SafariDriverService, SafariDriverService.Builder> {
+
+    public SafariDriverService.Builder usingTechnologyPreview(boolean useTechnologyPreview) {
+      if (useTechnologyPreview) {
+        usingDriverExecutable(TP_SAFARI_DRIVER_EXECUTABLE);
+      } else {
+        usingDriverExecutable(SAFARI_DRIVER_EXECUTABLE);
+      }
+      return this;
+    }
 
     protected File findDefaultExecutable() {
       return SAFARI_DRIVER_EXECUTABLE;

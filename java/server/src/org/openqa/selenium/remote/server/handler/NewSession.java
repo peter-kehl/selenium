@@ -32,6 +32,7 @@ import org.openqa.selenium.remote.server.log.LoggingManager;
 import org.openqa.selenium.remote.server.rest.RestishHandler;
 
 import java.util.Map;
+import java.util.stream.Stream;
 
 public class NewSession implements RestishHandler<Response>, JsonParametersAware {
   private volatile DriverSessions allSessions;
@@ -56,11 +57,13 @@ public class NewSession implements RestishHandler<Response>, JsonParametersAware
   @Override
   public Response handle() throws Exception {
     // Handle the case where the client does not send any desired capabilities.
-    sessionId = allSessions.newSession(desiredCapabilities != null
-                                       ? desiredCapabilities : new DesiredCapabilities());
+    Capabilities desired = desiredCapabilities != null ?
+                           desiredCapabilities : new DesiredCapabilities();
+
+    sessionId = allSessions.newSession(Stream.of(desired));
 
     Map<String, Object> capabilities =
-        Maps.newHashMap(allSessions.get(sessionId).getCapabilities().asMap());
+        Maps.newHashMap(allSessions.get(sessionId).getCapabilities());
 
     // Only servers implementing the server-side webdriver-backed selenium need
     // to return this particular value
@@ -68,7 +71,7 @@ public class NewSession implements RestishHandler<Response>, JsonParametersAware
 
     if (desiredCapabilities != null) {
       LoggingManager.perSessionLogHandler().configureLogging(
-          (LoggingPreferences)desiredCapabilities.getCapability(CapabilityType.LOGGING_PREFS));
+          (LoggingPreferences) desiredCapabilities.getCapability(CapabilityType.LOGGING_PREFS));
     }
     LoggingManager.perSessionLogHandler().attachToCurrentThread(sessionId);
 

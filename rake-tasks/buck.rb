@@ -1,5 +1,4 @@
 require 'childprocess'
-require 'java'
 require 'rake-tasks/checks'
 
 module Buck
@@ -19,27 +18,31 @@ module Buck
 
       if cached_hash == out_hash
         # Make sure we're running a pristine buck instance
-        sh "python \"#{out}\" kill"
-        return ["python", out]
+        cmd = (windows?) ? ["python", out] : [out]
+        sh cmd.join(" ") + " kill", :verbose => true
+        return cmd
       end
 
       url = "https://github.com/SeleniumHQ/buck/releases/download/buck-release-#{version}/buck.pex"
       out_dir = File.dirname out
       FileUtils.mkdir_p(out_dir) unless File.exist?(out_dir)
 
-      # Cut-and-pasted from rake-tasks/crazy_fun/mappings/java.rb. We duplicate the code here so
-      # we can delete that file and have this continue working, but once we delete that file, we
-      # should also stop using this version of ant and just use the ant bundled with jruby.
-      dir = 'third_party/java/ant'
-      Dir[File.join(dir, '*.jar')].each { |jar| require jar }
-      # we set ANT_HOME to avoid JRuby trying to load its own Ant
-      ENV['ANT_HOME'] = dir
-      require "ant"
+      require "third_party/java/httpcomponents/httpcore-4.4.6"
+      require "third_party/java/httpcomponents/httpclient-4.5.3"
+      require "third_party/java/commons-logging/commons-logging-1.2"
+      require "third_party/java/commons-io/commons-io-2.5"
 
-      ant.get('src' => url, 'dest' => out, 'verbose' => true)
+      httpclient = org.apache.http.impl.client.HttpClients.custom().setRedirectStrategy(org.apache.http.impl.client.LaxRedirectStrategy.new()).build()
+      httpget = org.apache.http.client.methods.HttpGet.new(url)
+      response = httpclient.execute(httpget)
+      entity = response.getEntity()
+      org.apache.commons.io.FileUtils.copyInputStreamToFile(entity.getContent(), java.io.File.new(out))
+      org.apache.http.util.EntityUtils.consume(entity) unless entity.nil?
+
       File.chmod(0755, out)
-      sh "python \"#{out}\" kill"
-      ["python", out]
+      cmd = (windows?) ? ["python", out] : [out]
+      sh cmd.join(" ") + " kill", :verbose => true
+      cmd
     )
   end
 
@@ -84,7 +87,8 @@ module Buck
         proc.wait
 
         if proc.exit_code != 0
-          raise "Buck build failed"
+          raise "Buck build failed with exit code: #{proc.exit_code}
+stdout: #{proc.io.stdout.output}"
         end
 
         block.call(proc.io.stdout.output) if block
@@ -179,6 +183,40 @@ rule /\/\/.*:zip/ => [ proc {|task_name| task_name[0..-5]} ] do |task|
   short = task.name[0..-5]
 
   task.enhance do
+    dir, target = short[2..-1].split(':', 2)
+    working_dir = "buck-out/crazy-fun/#{dir}/#{target}_zip"
+
+    # Build the source zip
+    Buck::buck_cmd.call('query', ["kind(java_library, deps(#{short}))"]) do |output|
+      # Collect all the targets
+      to_build = []
+      output.lines do |line|
+        line.chomp!
+        to_build.push(line + "#src")
+      end
+
+      src_dir = "buck-out/crazy-fun/#{dir}/#{target}_src_zip"
+      src_out = "#{working_dir}/#{target}-#{version}-nodeps-sources.zip"
+      mkdir_p File.dirname(src_out)
+      rm_f src_out
+      rm_rf src_dir
+
+      mkdir_p src_dir
+      mkdir_p "#{working_dir}/lib"
+      mkdir_p "#{working_dir}/uber"
+
+      Buck::buck_cmd.call('build', ['--show-output'] + to_build) do |built|
+        built.lines do |line|
+          line.chomp!
+          line.split[1].each do |file|
+            next unless File.exists? file
+            sh "cd #{src_dir} && jar xf #{File.expand_path(file)}"
+          end
+        end
+      end
+      sh "cd #{src_dir} && jar cMf #{File.expand_path(src_out)} *"
+    end
+
     # Figure out if this is an executable or a test target.
     Buck::buck_cmd.call('audit', ['classpath', short]) do |output|
       third_party = []
@@ -186,6 +224,7 @@ rule /\/\/.*:zip/ => [ proc {|task_name| task_name[0..-5]} ] do |task|
 
       output.lines do |line|
         line.chomp!
+        line = line.gsub(/\\/, "/")
 
         if line =~ /gen\/third_party\/.*\.jar/
           third_party.push(line)
@@ -193,13 +232,6 @@ rule /\/\/.*:zip/ => [ proc {|task_name| task_name[0..-5]} ] do |task|
           first_party.push(line)
         end
       end
-
-      dir, target = short[2..-1].split(':', 2)
-      working_dir = "buck-out/crazy-fun/#{dir}/#{target}_zip"
-      out = "buck-out/crazy-fun/#{dir}/#{target}.zip"
-      rm_rf working_dir
-      mkdir_p "#{working_dir}/lib"
-      mkdir_p "#{working_dir}/uber"
 
       first_party.each do |jar|
         sh "cd #{working_dir}/uber && jar xf #{jar}"
@@ -209,8 +241,9 @@ rule /\/\/.*:zip/ => [ proc {|task_name| task_name[0..-5]} ] do |task|
       version = File.open('SELENIUM_VERSION', &:gets).chomp
       version = eval(version)
 
+      out = "buck-out/crazy-fun/#{dir}/#{target}.zip"
+
       sh "cd #{working_dir}/uber && jar cMf ../#{target}-#{version}-nodeps.jar *"
-      # TODO: Get the sources of all deps too and build the -src.jar
       rm_rf "#{working_dir}/uber"
 
       third_party.each do |jar|
@@ -229,7 +262,9 @@ rule /\/\/.*/ do |task|
   # cases where the rule was not created by CrazyFun. Rules created by the "rule" method will
   # be a FileTask, whereas those created by CrazyFun are normal rake Tasks.
 
-  if task.class == Rake::FileTask && !task.out
+  buck_file = task.name[/\/\/([^:]+)/, 1] + "/BUCK"
+
+  if task.class == Rake::FileTask && !task.out && File.exists?(buck_file)
     task.enhance do
       Buck::buck_cmd.call('build', ['--deep', task.name])
     end

@@ -15,14 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 package org.openqa.selenium.environment.webserver;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Charsets;
-import com.google.common.base.Throwables;
 import com.google.common.io.Files;
 
 import org.apache.http.Header;
@@ -40,7 +38,6 @@ import org.junit.runners.JUnit4;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.os.CommandLine;
 import org.openqa.selenium.testing.drivers.WebDriverBuilder;
 
 import java.io.File;
@@ -156,8 +153,10 @@ public class AppServerTest {
 
     try {
       response = httpclient.execute(httpget);
+    } catch (RuntimeException e) {
+      throw e;
     } catch (Throwable t) {
-      throw Throwables.propagate(t);
+      throw new RuntimeException(t);
     }
 
     Header[] contentTypeHeaders = response.getHeaders("Content-Type");

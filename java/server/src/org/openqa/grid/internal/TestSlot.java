@@ -27,6 +27,7 @@ import org.openqa.grid.internal.utils.configuration.GridHubConfiguration;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.InvalidParameterException;
+import java.time.Clock;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
@@ -63,7 +64,13 @@ public class TestSlot {
   private boolean showWarning = false;
   private long lastSessionStart = -1;
 
-
+  /**
+   * Create a new test slot specifying a custom protocol path
+   * @param proxy the {@link RemoteProxy} which includes this test slot
+   * @param protocol the {@link SeleniumProtocol} this test slot conforms to
+   * @param path the protocol path this test slot uses
+   * @param capabilities capabilities of this test slot
+   */
   public TestSlot(RemoteProxy proxy, SeleniumProtocol protocol, String path,
                   Map<String, Object> capabilities) {
     this.proxy = proxy;
@@ -79,12 +86,25 @@ public class TestSlot {
     this.capabilities = capabilities;
   }
 
+  /**
+   * Create a new test slot
+   * @param proxy the {@link RemoteProxy} which includes this test slot
+   * @param protocol the {@link SeleniumProtocol} this test slot conforms to
+   * @param capabilities capabilities of this test slot
+   */
+  public TestSlot(RemoteProxy proxy, SeleniumProtocol protocol, Map<String, Object> capabilities) {
+    this(proxy, protocol, protocol.getPathConsideringCapabilitiesMap(capabilities), capabilities);
+  }
+
+  /**
+   * @return the capabilities of this test slot
+   */
   public Map<String, Object> getCapabilities() {
     return Collections.unmodifiableMap(capabilities);
   }
 
   /**
-   * @return the RemoteProxy that hosts this slot.
+   * @return the {@link RemoteProxy} that hosts this slot.
    */
   public RemoteProxy getProxy() {
     return proxy;
@@ -95,8 +115,8 @@ public class TestSlot {
    * test slot can host the desired capabilities, {@link CapabilityMatcher#matches(Map, Map)} is
    * invoked.
    * <p>
-   * Use {@link GridHubConfiguration#setCapabilityMatcher(CapabilityMatcher)}
-   * on the proxy hosting the test slot to modify the definition of match
+   * Use {@link GridHubConfiguration#capabilityMatcher} on the proxy hosting the test slot to
+   * modify the definition of match
    *
    * @param desiredCapabilities capabilities for the new session
    * @return a new session linked to that testSlot if possible, null otherwise.
@@ -109,7 +129,7 @@ public class TestSlot {
       }
       if (matches(desiredCapabilities)) {
         log.info("Trying to create a new session on test slot " + this.capabilities);
-        TestSession session = new TestSession(this, desiredCapabilities, new DefaultTimeSource());
+        TestSession session = new TestSession(this, desiredCapabilities, Clock.systemUTC());
         currentSession = session;
         lastSessionStart = System.currentTimeMillis();
         return session;
@@ -119,8 +139,6 @@ public class TestSlot {
       lock.unlock();
     }
   }
-
-
 
   /**
    * the type of protocol for the TestSlot.Ideally should always be webdriver, but can also be
@@ -147,7 +165,7 @@ public class TestSlot {
    * @return true if the desired capabilities matches for the
    *         {@link RemoteProxy#getCapabilityHelper()}
    */
-  boolean matches(Map<String, Object> desiredCapabilities) {
+  public boolean matches(Map<String, Object> desiredCapabilities) {
     return matcher.matches(capabilities, desiredCapabilities);
   }
 
@@ -200,15 +218,24 @@ public class TestSlot {
     }
   }
 
+  /**
+   * Finish releasing all resources so the slot can be reused.
+   */
   public void doFinishRelease() {
     currentSession = null;
     beingReleased = false;
   }
 
+  /**
+   * @return the test session internal key
+   */
   String getInternalKey() {
     return currentSession == null ? null : currentSession.getInternalKey();
   }
 
+  /**
+   * @return invokes after session {@link TestSessionListener} events on this test slot
+   */
   boolean performAfterSessionEvent() {
     // run the pre-release listener
     try {

@@ -17,15 +17,16 @@
 
 package org.openqa.selenium.safari;
 
-import com.google.common.base.Objects;
-import com.google.gson.JsonObject;
-
 import org.openqa.selenium.Capabilities;
+import org.openqa.selenium.MutableCapabilities;
+import org.openqa.selenium.Platform;
 import org.openqa.selenium.WebDriverException;
+import org.openqa.selenium.remote.CapabilityType;
 import org.openqa.selenium.remote.DesiredCapabilities;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Class to manage options specific to {@link SafariDriver}.
@@ -39,13 +40,12 @@ import java.util.Map;
  * SafariDriver driver = new SafariDriver(options);
  *
  * // For use with RemoteWebDriver:
- * DesiredCapabilities capabilities = DesiredCapabilities.safari();
- * capabilities.setCapability(SafariOptions.CAPABILITY, options);
  * RemoteWebDriver driver = new RemoteWebDriver(
- *     new URL("http://localhost:4444/wd/hub"), capabilities);
+ *     new URL("http://localhost:4444/wd/hub"),
+ *     options);
  * </code></pre>
  */
-public class SafariOptions {
+public class SafariOptions extends MutableCapabilities {
 
   /**
    * Key used to store SafariOptions in a {@link DesiredCapabilities} object.
@@ -56,18 +56,20 @@ public class SafariOptions {
     private Option() {}  // Utility class.
 
     private static final String CLEAN_SESSION = "cleanSession";
+    private static final String TECHNOLOGY_PREVIEW = "technologyPreview";
     private static final String PORT = "port";
   }
 
-  /**
-   * @see #setPort(int)
-   */
-  private int port = 0;
+  private Map<String, Object> options = new TreeMap<>();
 
-  /**
-   * @see #setUseCleanSession(boolean)
-   */
-  private boolean useCleanSession = false;
+  public SafariOptions() {
+    setCapability(Option.PORT, 0);
+    setCapability(Option.CLEAN_SESSION, false);
+    setCapability(Option.TECHNOLOGY_PREVIEW, false);
+
+    setCapability(CapabilityType.BROWSER_NAME, "safari");
+    setCapability(CapabilityType.PLATFORM, Platform.MAC);
+  }
 
   /**
    * Construct a {@link SafariOptions} instance from given capabilites.
@@ -84,7 +86,7 @@ public class SafariOptions {
       return (SafariOptions) cap;
     } else if (cap instanceof Map) {
       try {
-        return SafariOptions.fromJsonMap((Map) cap);
+        return SafariOptions.fromJsonMap((Map<?, ?>) cap);
       } catch (IOException e) {
         throw new WebDriverException(e);
       }
@@ -96,14 +98,15 @@ public class SafariOptions {
   // Setters
 
   /**
-   * Set the port the {@link SafariDriverServer} should be started on. Defaults to 0, in which case
+   * Set the port the {@link SafariDriverService} should be started on. Defaults to 0, in which case
    * the server selects a free port.
    *
-   * @param port The port the {@link SafariDriverServer} should be started on,
+   * @param port The port the {@link SafariDriverService} should be started on,
    *    or 0 if the server should select a free port.
    */
-  public void setPort(int port) {
-    this.port = port;
+  SafariOptions setPort(int port) {
+    options.put(Option.PORT, port);
+    return this;
   }
 
   /**
@@ -116,19 +119,32 @@ public class SafariOptions {
    *
    * @param useCleanSession If true, the SafariDriver will erase all existing session data.
    */
-  public void setUseCleanSession(boolean useCleanSession) {
-    this.useCleanSession = useCleanSession;
+  public SafariOptions setUseCleanSession(boolean useCleanSession) {
+    options.put(Option.CLEAN_SESSION, useCleanSession);
+    return this;
+  }
+
+  /**
+   * Instruct the SafariDriver to use the Safari Technology Preview if true, otherwise use the
+   * release version of Safari. Defaults to using the release version of Safari.
+   *
+   * @param useTechnologyPreview If true, the SafariDriver will use the Safari Technology Preview,
+   *     otherwise will use the release version of Safari.
+   */
+  public SafariOptions setUseTechnologyPreview(boolean useTechnologyPreview) {
+    options.put(Option.TECHNOLOGY_PREVIEW, useTechnologyPreview);
+    return this;
   }
 
   // Getters
 
   /**
-   * @return The port the {@link SafariDriverServer} should be started on.
+   * @return The port the {@link SafariDriverService} should be started on.
    *    If 0, the server should select a free port.
    * @see #setPort(int)
    */
   public int getPort() {
-    return port;
+    return (int) options.getOrDefault(Option.PORT, 0);
   }
 
   /**
@@ -136,32 +152,19 @@ public class SafariOptions {
    * @see #setUseCleanSession(boolean)
    */
   public boolean getUseCleanSession() {
-    return useCleanSession;
+    return (boolean) options.getOrDefault(Option.CLEAN_SESSION, false);
+  }
+
+  public boolean getUseTechnologyPreview() {
+    return (boolean) options.getOrDefault(Option.TECHNOLOGY_PREVIEW, false);
   }
 
   // (De)serialization of the options
 
   /**
-   * Converts this instance to its JSON representation.
-   *
-   * @return The JSON representation of the options.
-   * @throws IOException If an error occurred while reading the Safari extension files.
-   */
-  public JsonObject toJson() throws IOException {
-    JsonObject options = new JsonObject();
-    options.addProperty(Option.PORT, port);
-    options.addProperty(Option.CLEAN_SESSION, useCleanSession);
-    return options;
-  }
-
-  /**
    * Parse a Map and reconstruct the {@link SafariOptions}.
-   * A temporary directory is created to hold all Safari extension files.
    *
-   * @param options A Map derived from the output of {@link #toJson()}.
    * @return A {@link SafariOptions} instance associated with these extensions.
-   * @throws IOException If an error occurred while writing the safari extensions to a
-   *    temporary directory.
    */
   private static SafariOptions fromJsonMap(Map<?, ?> options) throws IOException {
     SafariOptions safariOptions = new SafariOptions();
@@ -175,6 +178,12 @@ public class SafariOptions {
     if (useCleanSession != null) {
       safariOptions.setUseCleanSession(useCleanSession);
     }
+
+    Boolean useTechnologyPreview = (Boolean) options.get(Option.TECHNOLOGY_PREVIEW);
+    if (useTechnologyPreview != null) {
+      safariOptions.setUseTechnologyPreview(useTechnologyPreview);
+    }
+
     return safariOptions;
   }
 
@@ -184,25 +193,10 @@ public class SafariOptions {
    * reflected in the returned capabilities.
    *
    * @return DesiredCapabilities for Safari with these extensions.
+   * @deprecated {@code SafariOptions} are already {@link MutableCapabilities}.
    */
-  DesiredCapabilities toCapabilities() {
-    DesiredCapabilities capabilities = DesiredCapabilities.safari();
-    capabilities.setCapability(CAPABILITY, this);
-    return capabilities;
-  }
-
-  @Override
-  public boolean equals(Object other) {
-    if (!(other instanceof SafariOptions)) {
-      return false;
-    }
-    SafariOptions that = (SafariOptions) other;
-    return this.port == that.port
-        && this.useCleanSession == that.useCleanSession;
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hashCode(this.port, this.useCleanSession);
+  @Deprecated
+  MutableCapabilities toCapabilities() {
+    return this;
   }
 }

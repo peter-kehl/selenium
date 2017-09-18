@@ -117,7 +117,7 @@ module Selenium
       end
 
       def make_writable(file)
-        File.chmod 0766, file
+        File.chmod 0o766, file
       end
 
       def assert_file(path)
@@ -140,15 +140,18 @@ module Selenium
 
       def find_binary(*binary_names)
         paths = ENV['PATH'].split(File::PATH_SEPARATOR)
-        binary_names.map! { |n| "#{n}.exe" } if windows?
+
+        if windows?
+          binary_names.map! { |n| "#{n}.exe" }
+          binary_names.dup.each { |n| binary_names << n.gsub('exe', 'bat') }
+        end
 
         binary_names.each do |binary_name|
           paths.each do |path|
             full_path = File.join(path, binary_name)
             full_path.tr!('\\', '/') if windows?
-            exe = Dir.glob(full_path).first
-            next unless exe
-            return exe if File.executable?(exe)
+            exe = Dir.glob(full_path).find { |f| File.executable?(f) }
+            return exe if exe
           end
         end
 
@@ -158,7 +161,8 @@ module Selenium
       def find_in_program_files(*binary_names)
         paths = [
           ENV['PROGRAMFILES'] || '\\Program Files',
-          ENV['ProgramFiles(x86)'] || '\\Program Files (x86)'
+          ENV['ProgramFiles(x86)'] || '\\Program Files (x86)',
+          ENV['ProgramW6432'] || '\\Program Files'
         ]
 
         paths.each do |root|
@@ -204,7 +208,7 @@ module Selenium
   end # WebDriver
 end # Selenium
 
-if __FILE__ == $PROGRAM_NAME
+if $PROGRAM_NAME == __FILE__
   p engine: Selenium::WebDriver::Platform.engine,
     os: Selenium::WebDriver::Platform.os,
     ruby_version: Selenium::WebDriver::Platform.ruby_version,

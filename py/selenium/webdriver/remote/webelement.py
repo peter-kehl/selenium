@@ -15,25 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import base64
 import hashlib
 import os
+import pkgutil
+import warnings
 import zipfile
-try:
-    from StringIO import StringIO as IOStream
-except ImportError:  # 3+
-    from io import BytesIO as IOStream
-import base64
 
-from .command import Command
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.utils import keys_to_typing
+from .command import Command
 
-
+# Python 3 imports
 try:
     str = basestring
 except NameError:
     pass
+
+try:
+    from StringIO import StringIO as IOStream
+except ImportError:  # 3+
+    from io import BytesIO as IOStream
+
+# not relying on __package__ here as it can be `None` in some situations (see #4558)
+_pkg = '.'.join(__name__.split('.')[:-1])
+getAttribute_js = pkgutil.get_data(_pkg, 'getAttribute.js').decode('utf8')
+isDisplayed_js = pkgutil.get_data(_pkg, 'isDisplayed.js').decode('utf8')
 
 
 class WebElement(object):
@@ -47,11 +55,6 @@ class WebElement(object):
     element is still attached to the DOM.  If this test fails, then an
     ``StaleElementReferenceException`` is thrown, and all future calls to this
     instance will fail."""
-
-    boolean_attributes = ['default', 'typemustmatch', 'checked', 'defer', 'async', 'muted',
-                          'reversed', 'required', 'controls', 'ismap', 'disabled', 'novalidate',
-                          'readonly', 'allowfullscreen', 'selected', 'formnovalidate',
-                          'multiple', 'autofocus', 'open', 'loop', 'autoplay']
 
     def __init__(self, parent, id_, w3c=False):
         self._parent = parent
@@ -107,7 +110,7 @@ class WebElement(object):
             return self._execute(Command.GET_ELEMENT_PROPERTY, {"name": name})["value"]
         except WebDriverException:
             # if we hit an end point that doesnt understand getElementProperty lets fake it
-            self.parent.execute_script('return arguments[0][arguments[1]]', self, name)
+            return self.parent.execute_script('return arguments[0][arguments[1]]', self, name)
 
     def get_attribute(self, name):
         """Gets the given attribute or property of the element.
@@ -133,28 +136,10 @@ class WebElement(object):
         """
 
         attributeValue = ''
-        if self._w3c :
-            if name == 'style':
-                return self.parent.execute_script("return arguments[0].style.cssText", self)
-            attributeValue = self.get_property(name)
-            if (attributeValue in [None, '', False] and name != 'value') or name in self.boolean_attributes:
-                # We need to check the attribute before we really set it to None
-                resp = self._execute(Command.GET_ELEMENT_ATTRIBUTE, {'name': name})
-                attributeValue = resp.get('value')
-
-                # Even though we have a value, we could be getting the browser default,
-                # We now need check it's there in the DOM...
-                resp = self.parent.execute_script("return arguments[0].hasAttribute(arguments[1])",
-                                                  self, name)
-                if resp is False:
-                    attributeValue = None
-            else:
-                attributeValue = "{0}".format(attributeValue)
-
-            if attributeValue is not None:
-                if name != 'value' and attributeValue.lower() in ('true', 'false'):
-                    attributeValue = attributeValue.lower()
-
+        if self._w3c:
+            attributeValue = self.parent.execute_script(
+                "return (%s).apply(null, arguments);" % getAttribute_js,
+                self, name)
         else:
             resp = self._execute(Command.GET_ELEMENT_ATTRIBUTE, {'name': name})
             attributeValue = resp.get('value')
@@ -178,7 +163,7 @@ class WebElement(object):
         """Finds element within this element's children by ID.
 
         :Args:
-            - id_ - ID of child element to locate.
+            - id\_ - ID of child element to locate.
         """
         return self.find_element(by=By.ID, value=id_)
 
@@ -186,7 +171,7 @@ class WebElement(object):
         """Finds a list of elements within this element's children by ID.
 
         :Args:
-            - id_ - Id of child element to find.
+            - id\_ - Id of child element to find.
         """
         return self.find_elements(by=By.ID, value=id_)
 
@@ -337,7 +322,7 @@ class WebElement(object):
 
         :Args:
             - value - A string for typing, or setting form fields.  For setting
-            file inputs, this could be a local file path.
+              file inputs, this could be a local file path.
 
         Use this to send simple key events or to fill out form fields::
 
@@ -362,12 +347,20 @@ class WebElement(object):
             if local_file is not None:
                 value = self._upload(local_file)
 
-        self._execute(Command.SEND_KEYS_TO_ELEMENT, {'value': keys_to_typing(value)})
+        self._execute(Command.SEND_KEYS_TO_ELEMENT,
+                      {'text': "".join(keys_to_typing(value)),
+                       'value': keys_to_typing(value)})
 
     # RenderedWebElement Items
     def is_displayed(self):
         """Whether the element is visible to a user."""
-        return self._execute(Command.IS_ELEMENT_DISPLAYED)['value']
+        # Only go into this conditional for browsers that don't use the atom themselves
+        if self._w3c and self.parent.capabilities['browserName'] == 'safari':
+            return self.parent.execute_script(
+                "return (%s).apply(null, arguments);" % isDisplayed_js,
+                self)
+        else:
+            return self._execute(Command.IS_ELEMENT_DISPLAYED)['value']
 
     @property
     def location_once_scrolled_into_view(self):
@@ -380,7 +373,7 @@ class WebElement(object):
 
         """
         if self._w3c:
-            old_loc = self._execute(Command.EXECUTE_SCRIPT, {
+            old_loc = self._execute(Command.W3C_EXECUTE_SCRIPT, {
                 'script': "arguments[0].scrollIntoView(true); return arguments[0].getBoundingClientRect()",
                 'args': [self]})['value']
             return {"x": round(old_loc['x']),
@@ -393,7 +386,7 @@ class WebElement(object):
         """The size of the element."""
         size = {}
         if self._w3c:
-            size = self._execute(Command.GET_ELEMENT_RECT)
+            size = self._execute(Command.GET_ELEMENT_RECT)['value']
         else:
             size = self._execute(Command.GET_ELEMENT_SIZE)['value']
         new_size = {"height": size["height"],
@@ -409,7 +402,7 @@ class WebElement(object):
     def location(self):
         """The location of the element in the renderable canvas."""
         if self._w3c:
-            old_loc = self._execute(Command.GET_ELEMENT_RECT)
+            old_loc = self._execute(Command.GET_ELEMENT_RECT)['value']
         else:
             old_loc = self._execute(Command.GET_ELEMENT_LOCATION)['value']
         new_loc = {"x": round(old_loc['x']),
@@ -419,10 +412,7 @@ class WebElement(object):
     @property
     def rect(self):
         """A dictionary with the size and location of the element."""
-        if self._w3c:
-            return self._execute(Command.GET_ELEMENT_RECT)
-        else:
-            return self._execute(Command.GET_ELEMENT_RECT)['value']
+        return self._execute(Command.GET_ELEMENT_RECT)['value']
 
     @property
     def screenshot_as_base64(self):
@@ -446,15 +436,20 @@ class WebElement(object):
 
     def screenshot(self, filename):
         """
-        Gets the screenshot of the current element. Returns False if there is
-           any IOError, else returns True. Use full paths in your filename.
+        Saves a screenshot of the current element to a PNG image file. Returns
+           False if there is any IOError, else returns True. Use full paths in
+           your filename.
 
         :Args:
-         - filename: The full path you wish to save your screenshot to.
+         - filename: The full path you wish to save your screenshot to. This
+           should end with a `.png` extension.
 
         :Usage:
             element.screenshot('/Screenshots/foo.png')
         """
+        if not filename.lower().endswith('.png'):
+            warnings.warn("name used for saved screenshot does not match file "
+                          "type. It should end with a `.png` extension", UserWarning)
         png = self.screenshot_as_png
         try:
             with open(filename, 'wb') as f:

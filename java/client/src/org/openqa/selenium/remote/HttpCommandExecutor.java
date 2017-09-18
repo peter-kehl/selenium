@@ -56,7 +56,7 @@ public class HttpCommandExecutor implements CommandExecutor, NeedsLocalLogs {
   private LocalLogs logs = LocalLogs.getNullLogger();
 
   public HttpCommandExecutor(URL addressOfRemoteServer) {
-    this(ImmutableMap.<String, CommandInfo>of(), addressOfRemoteServer);
+    this(ImmutableMap.of(), addressOfRemoteServer);
   }
 
   /**
@@ -67,7 +67,8 @@ public class HttpCommandExecutor implements CommandExecutor, NeedsLocalLogs {
    * @param addressOfRemoteServer URL of remote end Selenium server
    */
   public HttpCommandExecutor(
-      Map<String, CommandInfo> additionalCommands, URL addressOfRemoteServer) {
+      Map<String, CommandInfo> additionalCommands,
+      URL addressOfRemoteServer) {
     this(additionalCommands, addressOfRemoteServer, getDefaultClientFactory());
   }
 
@@ -161,9 +162,13 @@ public class HttpCommandExecutor implements CommandExecutor, NeedsLocalLogs {
       log(LogType.PROFILER, new HttpProfilerLogEntry(command.getName(), false));
 
       Response response = responseCodec.decode(httpResponse);
-      if (response.getSessionId() == null && httpResponse.getTargetHost() != null) {
-        String sessionId = HttpSessionId.getSessionId(httpResponse.getTargetHost());
-        response.setSessionId(sessionId);
+      if (response.getSessionId() == null) {
+        if (httpResponse.getTargetHost() != null) {
+          response.setSessionId(HttpSessionId.getSessionId(httpResponse.getTargetHost()));
+        } else {
+          // Spam in the session id from the request
+          response.setSessionId(command.getSessionId().toString());
+        }
       }
       if (QUIT.equals(command.getName())) {
     	  client.close();

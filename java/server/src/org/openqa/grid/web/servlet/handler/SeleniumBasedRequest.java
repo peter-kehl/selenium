@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 package org.openqa.grid.web.servlet.handler;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -25,13 +24,13 @@ import com.google.common.io.ByteStreams;
 import org.openqa.grid.common.exception.GridException;
 import org.openqa.grid.internal.ExternalSessionKey;
 import org.openqa.grid.internal.Registry;
-import org.openqa.grid.internal.TestSession;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -131,16 +130,13 @@ public abstract class SeleniumBasedRequest extends HttpServletRequestWrapper {
    */
   public abstract Map<String, Object> extractDesiredCapability();
 
-  // TODO freynaud remove the TestSession parameter.The listener can modify the
-  // original request instead.
-  public abstract String getNewSessionRequestedCapability(TestSession session);
-
   public RequestType getRequestType() {
     return type;
   }
 
   @Override
   public ServletInputStream getInputStream() throws IOException {
+    setBody(getBody());
     return new ServletInputStreamImpl(new ByteArrayInputStream(body));
   }
 
@@ -169,8 +165,8 @@ public abstract class SeleniumBasedRequest extends HttpServletRequestWrapper {
     return null;
   }
 
-  public void setBody(String content) {
-    setBody(content.getBytes());
+  public void setBody(String content) throws UnsupportedEncodingException {
+    setBody(content.getBytes(encoding));
   }
 
   public void setBody(byte[] content) {

@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 package com.thoughtworks.selenium.corebased;
 
 import com.google.common.base.Charsets;
@@ -28,7 +27,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 
 public class TestAttachFile extends InternalSelenseTestBase {

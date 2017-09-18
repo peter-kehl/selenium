@@ -39,7 +39,6 @@ import org.openqa.selenium.testing.TestUtilities;
 import java.util.Arrays;
 import java.util.List;
 
-
 public class I18nTest extends JUnit4TestBase {
 
   /**
@@ -86,9 +85,7 @@ public class I18nTest extends JUnit4TestBase {
   }
 
   @Test
-  @Ignore(
-      value = {MARIONETTE, CHROME},
-      reason = "CHROME: ChromeDriver only supports characters in the BMP")
+  @Ignore(value = CHROME, reason = "ChromeDriver only supports characters in the BMP")
   public void testEnteringSupplementaryCharacters() {
     assumeFalse("IE: versions less thank 10 have issue 5069",
                 TestUtilities.isInternetExplorer(driver) &&
@@ -122,10 +119,12 @@ public class I18nTest extends JUnit4TestBase {
   }
 
   @NeedsFreshDriver
-  @Ignore(value = {IE, CHROME, FIREFOX},
-          reason = "Not implemented on anything other than Firefox/Linux at the moment.")
-  @NotYetImplemented(HTMLUNIT)
   @Test
+  @Ignore(IE)
+  @Ignore(CHROME)
+  @Ignore(FIREFOX)
+  @Ignore(MARIONETTE)
+  @NotYetImplemented(HTMLUNIT)
   public void testShouldBeAbleToActivateIMEEngine() throws InterruptedException {
     assumeTrue("IME is supported on Linux only.",
                TestUtilities.getEffectivePlatform().is(Platform.LINUX));
@@ -170,8 +169,10 @@ public class I18nTest extends JUnit4TestBase {
         + " It was:" + elementValue, elementValue.equals(tokyo));
   }
 
-  @Ignore(value = {IE, CHROME, FIREFOX})
   @Test
+  @Ignore(IE)
+  @Ignore(CHROME)
+  @Ignore(FIREFOX)
   public void testShouldBeAbleToInputJapanese() {
     assumeTrue("IME is supported on Linux only.",
                TestUtilities.getEffectivePlatform().is(Platform.LINUX));

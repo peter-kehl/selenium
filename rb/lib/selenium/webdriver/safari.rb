@@ -17,45 +17,31 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require 'websocket'
-require 'pathname'
+require 'selenium/webdriver/safari/driver'
+require 'selenium/webdriver/safari/service'
 
 module Selenium
   module WebDriver
     module Safari
-      MISSING_TEXT = <<-ERROR.tr("\n", '').freeze
-        Unable to find safari extension. Please download the file from
-        http://www.seleniumhq.org/download/ and place it
-        somewhere on your PATH. More info at https://github.com/SeleniumHQ/selenium/wiki/SafariDriver.
-      ERROR
-
       class << self
+        def technology_preview
+          "/Applications/Safari\ Technology\ Preview.app/Contents/MacOS/safaridriver"
+        end
+
+        def technology_preview!
+          self.driver_path = technology_preview
+        end
+
         def path=(path)
           Platform.assert_executable(path)
           @path = path
         end
 
         def path
-          @path ||= (
-            path = case Platform.os
-                   when :windows
-                     Platform.find_in_program_files('Safari\\Safari.exe')
-                   when :macosx
-                     '/Applications/Safari.app/Contents/MacOS/Safari'
-                   else
-                     Platform.find_binary('Safari')
-                   end
-
-            unless File.file?(path) && File.executable?(path)
-              raise Error::WebDriverError, MISSING_TEXT
-            end
-
-            path
-          )
-        end
-
-        def resource_path
-          @resource_path ||= Pathname.new(File.expand_path('../safari/resources', __FILE__))
+          @path ||= '/Applications/Safari.app/Contents/MacOS/Safari'
+          return @path if File.file?(@path) && File.executable?(@path)
+          raise Error::WebDriverError, 'Safari is only supported on Mac' unless Platform.os.mac?
+          raise Error::WebDriverError, 'Unable to find Safari'
         end
 
         def driver_path=(path)
@@ -64,18 +50,9 @@ module Selenium
         end
 
         def driver_path
-          @driver_path || '/usr/bin/safaridriver'
+          @driver_path ||= nil
         end
       end
     end # Safari
   end # WebDriver
 end # Selenium
-
-require 'selenium/webdriver/safari/browser'
-require 'selenium/webdriver/safari/server'
-require 'selenium/webdriver/safari/options'
-require 'selenium/webdriver/safari/legacy_bridge'
-require 'selenium/webdriver/safari/apple_bridge'
-require 'selenium/webdriver/safari/service'
-
-Selenium::WebDriver::Safari::Bridge = Selenium::WebDriver::Safari::LegacyBridge

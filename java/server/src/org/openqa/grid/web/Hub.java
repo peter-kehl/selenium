@@ -25,6 +25,7 @@ import org.openqa.grid.web.servlet.DisplayHelpServlet;
 import org.openqa.grid.web.servlet.DriverServlet;
 import org.openqa.grid.web.servlet.Grid1HeartbeatServlet;
 import org.openqa.grid.web.servlet.HubStatusServlet;
+import org.openqa.grid.web.servlet.HubW3CStatusServlet;
 import org.openqa.grid.web.servlet.LifecycleServlet;
 import org.openqa.grid.web.servlet.ProxyStatusServlet;
 import org.openqa.grid.web.servlet.RegistrationServlet;
@@ -38,6 +39,7 @@ import org.seleniumhq.jetty9.server.HttpConnectionFactory;
 import org.seleniumhq.jetty9.server.Server;
 import org.seleniumhq.jetty9.server.ServerConnector;
 import org.seleniumhq.jetty9.servlet.ServletContextHandler;
+import org.seleniumhq.jetty9.servlet.ServletHolder;
 import org.seleniumhq.jetty9.util.thread.QueuedThreadPool;
 
 import java.net.MalformedURLException;
@@ -56,7 +58,6 @@ public class Hub {
   private static final Logger log = Logger.getLogger(Hub.class.getName());
 
   private GridHubConfiguration config;
-  private final boolean isHostRestricted;
   private final Registry registry;
   private final Map<String, Class<? extends Servlet>> extraServlet = Maps.newHashMap();
 
@@ -79,12 +80,9 @@ public class Hub {
     registry = Registry.newInstance(this, gridHubConfiguration);
 
     config = gridHubConfiguration;
-    if (config.host != null) {
-      isHostRestricted = true;
-    } else {
+    if (config.host == null) {
       NetworkUtils utils = new NetworkUtils();
       config.host = utils.getIp4NonLoopbackAddressOfThisMachine().getHostAddress();
-      isHostRestricted = false;
     }
 
     if (config.port == null) {
@@ -103,9 +101,50 @@ public class Hub {
     }
   }
 
+  private void addDefaultServlets(ServletContextHandler handler) {
+    // add mandatory default servlets
+    handler.addServlet(RegistrationServlet.class.getName(), "/grid/register/*");
+
+    handler.addServlet(DriverServlet.class.getName(), "/wd/hub/*");
+    handler.addServlet(DriverServlet.class.getName(), "/selenium-server/driver/*");
+
+    handler.addServlet(ProxyStatusServlet.class.getName(), "/grid/api/proxy/*");
+
+    handler.addServlet(HubStatusServlet.class.getName(), "/grid/api/hub/*");
+
+    ServletHolder statusHolder = new ServletHolder(new HubW3CStatusServlet(getRegistry()));
+    handler.addServlet(statusHolder, "/status");
+    handler.addServlet(statusHolder, "/wd/hub/status");
+
+    handler.addServlet(TestSessionStatusServlet.class.getName(), "/grid/api/testsession/*");
+
+    // add optional default servlets
+    if (!config.isWithOutServlet(ResourceServlet.class)) {
+      handler.addServlet(ResourceServlet.class.getName(), "/grid/resources/*");
+    }
+
+    if (!config.isWithOutServlet(DisplayHelpServlet.class)) {
+      handler.addServlet(DisplayHelpServlet.class.getName(), "/*");
+      handler.setInitParameter(DisplayHelpServlet.HELPER_TYPE_PARAMETER, config.role);
+    }
+
+    if (!config.isWithOutServlet(ConsoleServlet.class)) {
+      handler.addServlet(ConsoleServlet.class.getName(), "/grid/console/*");
+      handler.setInitParameter(ConsoleServlet.CONSOLE_PATH_PARAMETER, "/grid/console");
+    }
+
+    if (!config.isWithOutServlet(LifecycleServlet.class)) {
+      handler.addServlet(LifecycleServlet.class.getName(), "/lifecycle-manager/*");
+    }
+
+    if (!config.isWithOutServlet(Grid1HeartbeatServlet.class)) {
+      handler.addServlet(Grid1HeartbeatServlet.class.getName(), "/heartbeat");
+    }
+  }
+
   private void initServer() {
     try {
-      if (config.jettyMaxThreads>0) {
+      if (config.jettyMaxThreads != null && config.jettyMaxThreads > 0) {
         QueuedThreadPool pool = new QueuedThreadPool();
         pool.setMaxThreads(config.jettyMaxThreads);
         server = new Server(pool);
@@ -123,20 +162,6 @@ public class Hub {
       http.setPort(config.port);
 
       server.addConnector(http);
-//      if (isHostRestricted) {
-////        httpConfig.
-//      }
-//      httpConfig.setL
-
-
-//      SocketConnector socketListener = new SocketConnector();
-//      socketListener.setMaxIdleTime(60000);
-//      if (isHostRestricted) {
-//        socketListener.setHost(host);
-//      }
-//      socketListener.setPort(port);
-//      socketListener.setLowResourcesMaxIdleTime(6000);
-//      server.addConnector(socketListener);
 
       ServletContextHandler root = new ServletContextHandler(ServletContextHandler.SESSIONS);
       root.setContextPath("/");
@@ -144,26 +169,7 @@ public class Hub {
 
       root.setAttribute(Registry.KEY, registry);
 
-      root.addServlet(DisplayHelpServlet.class.getName(), "/*");
-
-      root.addServlet(ConsoleServlet.class.getName(), "/grid/console/*");
-
-      root.addServlet(RegistrationServlet.class.getName(), "/grid/register/*");
-
-      root.addServlet(DriverServlet.class.getName(), "/wd/hub/*");
-      root.addServlet(DriverServlet.class.getName(), "/selenium-server/driver/*");
-
-      root.addServlet(ResourceServlet.class.getName(), "/grid/resources/*");
-
-      root.addServlet(ProxyStatusServlet.class.getName(), "/grid/api/proxy/*");
-
-      root.addServlet(HubStatusServlet.class.getName(), "/grid/api/hub/*");
-
-      root.addServlet(TestSessionStatusServlet.class.getName(), "/grid/api/testsession/*");
-
-      root.addServlet(LifecycleServlet.class.getName(), "/lifecycle-manager/*");
-
-      root.addServlet(Grid1HeartbeatServlet.class.getName(), "/heartbeat");
+      addDefaultServlets(root);
 
       // Load any additional servlets provided by the user.
       for (Map.Entry<String, Class<? extends Servlet>> entry : extraServlet.entrySet()) {

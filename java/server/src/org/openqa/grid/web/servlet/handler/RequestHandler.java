@@ -25,7 +25,6 @@ import org.openqa.grid.internal.RemoteProxy;
 import org.openqa.grid.internal.SessionTerminationReason;
 import org.openqa.grid.internal.TestSession;
 import org.openqa.grid.internal.exception.NewSessionException;
-import org.openqa.grid.internal.listeners.Prioritizer;
 import org.openqa.grid.internal.listeners.TestSessionListener;
 import org.openqa.selenium.remote.DesiredCapabilities;
 
@@ -49,29 +48,26 @@ import javax.servlet.http.HttpServletResponse;
 @SuppressWarnings("JavaDoc")
 public class RequestHandler implements Comparable<RequestHandler> {
 
+  private static final Logger log = Logger.getLogger(RequestHandler.class.getName());
+
   private final Registry registry;
   private final SeleniumBasedRequest request;
   private final HttpServletResponse response;
 
-  private volatile TestSession session = null;
-
-
   private final CountDownLatch sessionAssigned = new CountDownLatch(1);
-
-  private static final Logger log = Logger.getLogger(RequestHandler.class.getName());
   private final Thread waitingThread;
 
+  private volatile TestSession session = null;
 
-
-
-  public  RequestHandler(SeleniumBasedRequest request, HttpServletResponse response,
+  public  RequestHandler(
+      SeleniumBasedRequest request,
+      HttpServletResponse response,
       Registry registry) {
     this.request = request;
     this.response = response;
     this.registry = registry;
     this.waitingThread = Thread.currentThread();
   }
-
 
 
   /**
@@ -84,8 +80,6 @@ public class RequestHandler implements Comparable<RequestHandler> {
   public void forwardNewSessionRequestAndUpdateRegistry(TestSession session)
       throws NewSessionException {
     try {
-      String content = request.getNewSessionRequestedCapability(session);
-      getRequest().setBody(content);
       session.forward(getRequest(), getResponse(), true);
     } catch (IOException e) {
       //log.warning("Error forwarding the request " + e.getMessage());
@@ -112,6 +106,7 @@ public class RequestHandler implements Comparable<RequestHandler> {
           forwardNewSessionRequestAndUpdateRegistry(session);
         } catch (Exception e) {
           cleanup();
+          log.log(Level.INFO, "Error forwarding the new session " + e.getMessage(), e);
           throw new GridException("Error forwarding the new session " + e.getMessage(), e);
         }
         break;
@@ -185,10 +180,11 @@ public class RequestHandler implements Comparable<RequestHandler> {
    */
   public void waitForSessionBound() throws InterruptedException, TimeoutException {
     // Maintain compatibility with Grid 1.x, which had the ability to
-    // specify how long to wait before canceling
-    // a request.
-    if (registry.getConfiguration().newSessionWaitTimeout > 0) {
-      if (!sessionAssigned.await(registry.getConfiguration().newSessionWaitTimeout, TimeUnit.MILLISECONDS)) {
+    // specify how long to wait before canceling a request.
+    Integer newSessionWaitTimeout = registry.getConfiguration().newSessionWaitTimeout != null ?
+                                    registry.getConfiguration().newSessionWaitTimeout : 0;
+    if (newSessionWaitTimeout > 0) {
+      if (!sessionAssigned.await(newSessionWaitTimeout.longValue(), TimeUnit.MILLISECONDS)) {
         throw new TimeoutException("Request timed out waiting for a node to become available.");
       }
     } else {

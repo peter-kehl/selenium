@@ -84,7 +84,7 @@ module Selenium
                   progress += segment.length
                   segment_count += 1
 
-                  if segment_count % 15 == 0
+                  if (segment_count % 15).zero?
                     percent = (progress.to_f / total.to_f) * 100
                     print "#{CL_RESET}Downloading #{download_file_name}: #{percent.to_i}% (#{progress} / #{total})"
                     segment_count = 0
@@ -232,7 +232,12 @@ module Selenium
 
     def process
       @process ||= (
-        cp = ChildProcess.build('java', '-jar', @jar, '-port', @port.to_s, *@additional_args)
+        # extract any additional_args that start with -D as options
+        properties = @additional_args.dup - @additional_args.delete_if { |arg| arg[/^-D/] }
+        server_command = ['java'] + properties + ['-jar', @jar, '-port', @port.to_s] + @additional_args
+        cp = ChildProcess.build(*server_command)
+        WebDriver.logger.debug("Executing Process #{server_command}")
+
         io = cp.io
 
         if @log.is_a?(String)

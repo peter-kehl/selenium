@@ -15,18 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 package org.openqa.grid.e2e.node;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import com.google.common.base.Function;
-
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.openqa.grid.common.GridRole;
 import org.openqa.grid.e2e.utils.GridTestHelper;
@@ -36,8 +33,9 @@ import org.openqa.grid.internal.RemoteProxy;
 import org.openqa.grid.internal.utils.SelfRegisteringRemote;
 import org.openqa.grid.selenium.proxy.DefaultRemoteProxy;
 import org.openqa.grid.web.Hub;
-import org.openqa.selenium.WebDriverException;
-import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.Capabilities;
+import org.openqa.selenium.SessionNotCreatedException;
+import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.remote.server.SeleniumServer;
@@ -45,29 +43,28 @@ import org.openqa.selenium.support.ui.FluentWait;
 import org.openqa.selenium.support.ui.Wait;
 
 import java.net.MalformedURLException;
+import java.util.function.Function;
 
 
 public class CrashWhenStartingBrowserTest {
 
-  private static Hub hub;
-  private static SelfRegisteringRemote remote;
-  private static Registry registry;
-  private static Wait<Object> wait = new FluentWait<Object>("").withTimeout(30, SECONDS);
+  private Hub hub;
+  private SelfRegisteringRemote remote;
+  private Registry registry;
+  private Wait<Object> wait = new FluentWait<Object>("").withTimeout(30, SECONDS);
 
-  private static String proxyId;
+  private String proxyId;
 
-  private static final String wrong_path = "stupidPathUnliklyToExist";
+  private static final String WRONG_PATH = "stupidPathUnlikelyToExist";
 
-  @BeforeClass
-  public static void prepareANodePointingToANonExistingFirefox() throws Exception {
+  @Before
+  public void prepareANodePointingToANonExistingFirefox() throws Exception {
     hub = GridTestHelper.getHub();
     registry = hub.getRegistry();
 
     remote = GridTestHelper.getRemoteWithoutCapabilities(hub.getUrl(), GridRole.NODE);
 
-    DesiredCapabilities firefox = DesiredCapabilities.firefox();
-    firefox.setCapability(FirefoxDriver.BINARY, wrong_path);
-    remote.addBrowser(firefox, 1);
+    remote.addBrowser(DesiredCapabilities.firefox(), 1);
 
     remote.setRemoteServer(new SeleniumServer(remote.getConfiguration()));
     remote.startRemoteServer();
@@ -88,30 +85,26 @@ public class CrashWhenStartingBrowserTest {
     // no active sessions
     assertEquals("active session is found on empty grid", 0, registry.getActiveSessions().size());
 
-    WebDriverException exception = null;
     try {
-      DesiredCapabilities ff = DesiredCapabilities.firefox();
+      Capabilities ff = new FirefoxOptions()
+          .setBinary(WRONG_PATH)
+          .addTo(DesiredCapabilities.firefox());
       new RemoteWebDriver(hub.getWebDriverHubRequestURL(), ff);
-    } catch (WebDriverException expected) {
-      exception = expected;
+      fail("Expected WebDriverException to be thrown");
+    } catch (SessionNotCreatedException expected) {
+      assertTrue(
+          "We'd like to assert the path is in the message, but the spec does not demand this",
+          true);
     }
-
-    assertNotNull(exception);
-    assertTrue(exception.getMessage().contains(wrong_path));
 
     RegistryTestHelper.waitForActiveTestSessionCount(registry, 0);
   }
 
   private Function<Object, Boolean> isUp(final DefaultRemoteProxy proxy) {
-    return new Function<Object, Boolean>() {
-      @Override
-      public Boolean apply(Object input) {
-        return !proxy.isDown();
-      }
-    };
+    return input -> !proxy.isDown();
   }
 
-  private static String getProxyId() throws Exception {
+  private String getProxyId() throws Exception {
     RemoteProxy p = null;
     for (RemoteProxy remoteProxy : registry.getAllProxies()) {
       p = remoteProxy;
@@ -126,8 +119,8 @@ public class CrashWhenStartingBrowserTest {
     return proxyId;
   }
 
-  @AfterClass
-  public static void stop() throws Exception {
+  @After
+  public void stop() throws Exception {
     remote.stopRemoteServer();
     hub.stop();
   }

@@ -17,17 +17,25 @@
 
 package org.openqa.grid.e2e.misc;
 
-import junit.framework.Assert;
+import com.google.common.base.Function;
 
+import org.junit.Assert;
 import org.junit.Test;
 import org.openqa.grid.selenium.GridLauncherV3;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.net.PortProber;
 import org.openqa.selenium.net.UrlChecker;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
+import org.openqa.selenium.support.ui.FluentWait;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -37,21 +45,39 @@ public class GridViaCommandLineTest {
 
   @Test
   public void testRegisterNodeToHub() throws Exception {
-    String[] hubArgs = {"-role", "hub"};
+    Integer hubPort = PortProber.findFreePort();
+    String[] hubArgs = {"-role", "hub", "-port", hubPort.toString()};
     GridLauncherV3.main(hubArgs);
     UrlChecker urlChecker = new UrlChecker();
-    urlChecker.waitUntilAvailable(10, TimeUnit.SECONDS, new URL("http://localhost:4444/grid/console"));
+    urlChecker.waitUntilAvailable(10, TimeUnit.SECONDS, new URL(String.format("http://localhost:%d/grid/console", hubPort)));
 
-    String[] nodeArgs = {"-role", "node", "-hub", "http://localhost:4444", "-browser", "browserName=chrome,maxInstances=1"};
+
+    Integer nodePort = PortProber.findFreePort();
+
+    String[] nodeArgs = {"-role", "node", "-hub", "http://localhost:" + hubPort, "-browser", "browserName=htmlunit,maxInstances=1", "-port", nodePort.toString()};
     GridLauncherV3.main(nodeArgs);
-    urlChecker.waitUntilAvailable(100, TimeUnit.SECONDS, new URL("http://localhost:5555/wd/hub/status"));
+    urlChecker.waitUntilAvailable(100, TimeUnit.SECONDS, new URL(String.format("http://localhost:%d/wd/hub/status", nodePort)));
 
-    WebDriver driver = new RemoteWebDriver(new URL("http://localhost:4444/wd/hub"),
-                                                   DesiredCapabilities.chrome());
+    new FluentWait<URL>(new URL(String.format("http://localhost:%d/grid/console", hubPort))).withTimeout(5, TimeUnit.SECONDS).pollingEvery(50, TimeUnit.MILLISECONDS)
+      .until(new Function<URL, Boolean>() {
+        @Override
+        public Boolean apply(URL u) {
+          try (InputStream is = u.openConnection().getInputStream();
+               InputStreamReader isr = new InputStreamReader(is, StandardCharsets.UTF_8);
+               BufferedReader reader = new BufferedReader(isr)) {
+            return reader.lines().anyMatch(l -> l.contains("htmlunit"));
+          } catch (IOException ioe) {
+            return false;
+          }
+        }
+      });
+
+    WebDriver driver = new RemoteWebDriver(new URL(String.format("http://localhost:%d/wd/hub", hubPort)),
+                                                   DesiredCapabilities.htmlUnit());
 
     try {
-      driver.get("http://localhost:4444/grid/console");
-      Assert.assertEquals("Should only have one chrome registered to the hub", 1, driver.findElements(By.cssSelector("img[src$='chrome.png']")).size());
+      driver.get(String.format("http://localhost:%d/grid/console", hubPort));
+      Assert.assertEquals("Should only have one htmlunit registered to the hub", 1, driver.findElements(By.cssSelector("img[src$='htmlunit.png']")).size());
     } finally {
       try {
         driver.quit();

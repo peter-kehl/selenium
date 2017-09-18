@@ -26,11 +26,14 @@ import com.google.common.collect.ImmutableMap;
 import com.thoughtworks.selenium.Selenium;
 import com.thoughtworks.selenium.SeleniumException;
 
+import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -49,14 +52,14 @@ public class CoreTestCase {
     this.url = Preconditions.checkNotNull(url);
   }
 
-  public void run(Results results, WebDriver driver, Selenium selenium) {
+  public void run(Results results, WebDriver driver, Selenium selenium, URL baseUrl) {
     String currentUrl = driver.getCurrentUrl();
     if (!url.equals(currentUrl)) {
       driver.get(url);
     }
 
     // Grabbing the steps modifies the underlying HTML...
-    List<LoggableStep> steps = findCommands(driver);
+    List<LoggableStep> steps = findCommands(driver, baseUrl);
     // ... which we now grab so we can process it later.
     String rawSource = getLoggableTests(driver);
 
@@ -93,7 +96,21 @@ public class CoreTestCase {
       "return trElement.outerHTML;"));
   }
 
-  private List<LoggableStep> findCommands(WebDriver driver) {
+  private List<LoggableStep> findCommands(WebDriver driver, URL baseUrl) {
+    if (baseUrl ==  null) {
+      // Figure out the base url, if it is not specified and there is one in the test case file.
+      List<WebElement> allLinks = driver.findElements(By.xpath("//head/link[@rel='selenium.base']"));
+      // Only use the first one (if there's one at all)
+      if (!allLinks.isEmpty()) {
+        String href = allLinks.get(0).getAttribute("href");
+        try {
+          baseUrl = new URL(href);
+        } catch (MalformedURLException e) {
+          throw new SeleniumException("Base URL for test cannot be parsed: " + href);
+        }
+      }
+    }
+
     // Let's just run and hide in the horror that is JS for the sake of speed.
     List<List<String>> rawSteps = (List<List<String>>) ((JavascriptExecutor) driver).executeScript(
       "var toReturn = [];\n" +
@@ -112,16 +129,24 @@ public class CoreTestCase {
       "return toReturn;");
 
     ImmutableList.Builder<LoggableStep> steps = ImmutableList.builder();
-    Iterator<List<String>> stepIterator = rawSteps.iterator();
-    while (stepIterator.hasNext()) {
-      List<String> step =  stepIterator.next();
+    for (List<String> step : rawSteps) {
       if (!STEP_FACTORY.containsKey(step.get(0))) {
         throw new SeleniumException("Unknown command: " + step.get(0));
       }
+      String value = step.get(1);
+      if (baseUrl != null && "open".equals(step.get(0)) || "openWindow".equals(step.get(0))) {
+        try {
+          value = value.indexOf("://") == -1 ?
+                  new URL(baseUrl, value).toString() :
+                  value;
+        } catch (MalformedURLException e) {
+          throw new SeleniumException("Unable to determine URL to open: " + value);
+        }
+      }
       steps.add(new LoggableStep(
-        STEP_FACTORY.get(step.get(0)).create(step.get(1), step.get(2)),
+        STEP_FACTORY.get(step.get(0)).create(value, step.get(2)),
         step.get(0),
-        step.get(1),
+        value,
         step.get(2)));
     }
     return steps.build();
@@ -189,7 +214,8 @@ public class CoreTestCase {
     }
 
     public String getStepLog() {
-      return step.toString();
+      return cause == null ? step.toString()
+        : String.format("%s\n%s", step.toString(), cause);
     }
   }
 }

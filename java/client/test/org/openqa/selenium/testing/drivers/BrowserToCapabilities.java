@@ -37,18 +37,14 @@ public class BrowserToCapabilities {
 
       case ff:
         caps = DesiredCapabilities.firefox();
-        caps.setCapability(FirefoxDriver.MARIONETTE,
-                           Boolean.getBoolean(FirefoxDriver.SystemProperty.DRIVER_USE_MARIONETTE));
+        String property =
+          System.getProperty(FirefoxDriver.SystemProperty.DRIVER_USE_MARIONETTE, "true");
+        boolean useMarionette = property != null && Boolean.parseBoolean(property);
+        caps.setCapability(FirefoxDriver.MARIONETTE, useMarionette);
         break;
 
       case htmlunit:
         caps = DesiredCapabilities.htmlUnit();
-        caps.setJavascriptEnabled(false);
-        break;
-
-      case htmlunit_js:
-        caps = DesiredCapabilities.htmlUnit();
-        caps.setJavascriptEnabled(true);
         break;
 
       case ie:

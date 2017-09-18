@@ -20,11 +20,14 @@ package org.openqa.selenium.testing;
 public enum Driver {
   ALL,
   CHROME,
+  EDGE,
   HTMLUNIT,
   FIREFOX,
   IE,
   MARIONETTE,
   PHANTOMJS,
-  REMOTE,
   SAFARI,
+
+  REMOTE,
+  GRID
 }

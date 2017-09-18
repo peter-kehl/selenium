@@ -15,118 +15,114 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import unittest
 import pytest
 
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 
-@pytest.mark.ignore_marionette
-class PageLoadingTests(unittest.TestCase):
+def testShouldWaitForDocumentToBeLoaded(driver, pages):
+    pages.load("simpleTest.html")
+    assert driver.title == "Hello WebDriver"
 
-    def testShouldWaitForDocumentToBeLoaded(self):
-        self._loadSimplePage()
 
-        self.assertEqual(self.driver.title, "Hello WebDriver")
+# Disabled till Java WebServer is used
+# def testShouldFollowRedirectsSentInTheHttpResponseHeaders(driver, pages):
+#    pages.load("redirect.html")
+#    assert driver.title == "We Arrive Here"
 
-    # Disabled till Java WebServer is used
-    # def testShouldFollowRedirectsSentInTheHttpResponseHeaders(self):
-    #    self.driver.get(pages.redirectPage);
-    #    self.assertEqual(self.driver.title, "We Arrive Here")
 
-    # Disabled till the Java WebServer is used
-    # def testShouldFollowMetaRedirects(self):
-    #    self._loadPage("metaRedirect")
-    #    self.assertEqual(self.driver.title, "We Arrive Here")
+# Disabled till the Java WebServer is used
+# def testShouldFollowMetaRedirects(driver, pages):
+#    pages.load("metaRedirect.html")
+#    assert driver.title == "We Arrive Here"
 
-    def testShouldBeAbleToGetAFragmentOnTheCurrentPage(self):
-        self._loadPage("xhtmlTest")
-        location = self.driver.current_url
-        self.driver.get(location + "#text")
-        self.driver.find_element(by=By.ID, value="id1")
 
-    @pytest.mark.ignore_safari
-    def testShouldReturnWhenGettingAUrlThatDoesNotResolve(self):
-        try:
-            #  Of course, we're up the creek if this ever does get registered
-            self.driver.get("http://www.thisurldoesnotexist.comx/")
-        except ValueError:
-            pass
+def testShouldBeAbleToGetAFragmentOnTheCurrentPage(driver, pages):
+    pages.load("xhtmlTest.html")
+    location = driver.current_url
+    driver.get(location + "#text")
+    driver.find_element(by=By.ID, value="id1")
 
-    @pytest.mark.ignore_safari
-    def testShouldReturnWhenGettingAUrlThatDoesNotConnect(self):
-        #  Here's hoping that there's nothing here. There shouldn't be
-        self.driver.get("http://localhost:3001")
 
-    # @Ignore({IE, IPHONE, SELENESE})
-    # def testShouldBeAbleToLoadAPageWithFramesetsAndWaitUntilAllFramesAreLoaded() {
-    #     self.driver.get(pages.framesetPage)
-    #
-    #     self.driver.switchTo().frame(0)
-    #     WebElement pageNumber = self.driver.findElement(By.xpath("#span[@id='pageNumber']"))
-    #     self.assertEqual((pageNumber.getText().trim(), equalTo("1"))
-    #
-    #     self.driver.switchTo().defaultContent().switchTo().frame(1)
-    #     pageNumber = self.driver.findElement(By.xpath("#span[@id='pageNumber']"))
-    #     self.assertEqual((pageNumber.getText().trim(), equalTo("2"))
+@pytest.mark.xfail_marionette(raises=WebDriverException)
+def testShouldReturnWhenGettingAUrlThatDoesNotResolve(driver):
+    #  Of course, we're up the creek if this ever does get registered
+    driver.get("http://www.thisurldoesnotexist.comx/")
 
-    # Need to implement this decorator
-    # @NeedsFreshDriver
-    # def testSouldDoNothingIfThereIsNothingToGoBackTo() {
-    #     originalTitle = self.driver.getTitle();
-    #     self.driver.get(pages.formPage);
-    #     self.driver.back();
-    #     # We may have returned to the browser's home page
-    #     self.assertEqual(self.driver.title, anyOf(equalTo(originalTitle), equalTo("We Leave From Here")));
 
-    def testShouldBeAbleToNavigateBackInTheBrowserHistory(self):
-        self._loadPage("formPage")
+@pytest.mark.xfail_marionette(raises=WebDriverException)
+def testShouldReturnWhenGettingAUrlThatDoesNotConnect(driver):
+    #  Here's hoping that there's nothing here. There shouldn't be
+    driver.get("http://localhost:3001")
 
-        self.driver.find_element(by=By.ID, value="imageButton").submit()
-        self.assertEqual(self.driver.title, "We Arrive Here")
+# def testShouldBeAbleToLoadAPageWithFramesetsAndWaitUntilAllFramesAreLoaded() {
+#     driver.get(pages.framesetPage)
+#
+#     driver.switchTo().frame(0)
+#     WebElement pageNumber = driver.findElement(By.xpath("#span[@id='pageNumber']"))
+#     self.assertEqual((pageNumber.getText().trim(), equalTo("1"))
+#
+#     driver.switchTo().defaultContent().switchTo().frame(1)
+#     pageNumber = driver.findElement(By.xpath("#span[@id='pageNumber']"))
+#     self.assertEqual((pageNumber.getText().trim(), equalTo("2"))
 
-        self.driver.back()
-        self.assertEqual(self.driver.title, "We Leave From Here")
+# Need to implement this decorator
+# @NeedsFreshDriver
+# def testSouldDoNothingIfThereIsNothingToGoBackTo() {
+#     originalTitle = driver.getTitle();
+#     driver.get(pages.formPage);
+#     driver.back();
+#     # We may have returned to the browser's home page
+#     self.assertEqual(driver.title, anyOf(equalTo(originalTitle), equalTo("We Leave From Here")));
 
-    def testShouldBeAbleToNavigateBackInTheBrowserHistoryInPresenceOfIframes(self):
-        self._loadPage("xhtmlTest")
 
-        self.driver.find_element(by=By.NAME, value="sameWindow").click()
+def testShouldBeAbleToNavigateBackInTheBrowserHistory(driver, pages):
+    pages.load("formPage.html")
 
-        self.assertEqual(self.driver.title, "This page has iframes")
+    driver.find_element(by=By.ID, value="imageButton").submit()
+    WebDriverWait(driver, 3).until(EC.title_is("We Arrive Here"))
 
-        self.driver.back()
-        self.assertEqual(self.driver.title, "XHTML Test Page")
+    driver.back()
+    assert driver.title == "We Leave From Here"
 
-    def testShouldBeAbleToNavigateForwardsInTheBrowserHistory(self):
-        self._loadPage("formPage")
 
-        self.driver.find_element(by=By.ID, value="imageButton").submit()
-        self.assertEqual(self.driver.title, "We Arrive Here")
+def testShouldBeAbleToNavigateBackInTheBrowserHistoryInPresenceOfIframes(driver, pages):
+    pages.load("xhtmlTest.html")
 
-        self.driver.back()
-        self.assertEqual(self.driver.title, "We Leave From Here")
+    driver.find_element(by=By.NAME, value="sameWindow").click()
 
-        self.driver.forward()
-        self.assertEqual(self.driver.title, "We Arrive Here")
+    assert driver.title == "This page has iframes"
 
-    @pytest.mark.ignore_ie
-    def testShouldNotHangifDocumentOpenCallIsNeverFollowedByDocumentCloseCall(self):
-        self._loadPage("document_write_in_onload")
-        self.driver.find_element(By.XPATH, "//body")
+    driver.back()
+    assert driver.title == "XHTML Test Page"
 
-    def testShouldBeAbleToRefreshAPage(self):
-        self._loadPage("xhtmlTest")
 
-        self.driver.refresh()
+def testShouldBeAbleToNavigateForwardsInTheBrowserHistory(driver, pages):
+    pages.load("formPage.html")
 
-        self.assertEqual(self.driver.title, "XHTML Test Page")
+    driver.find_element(by=By.ID, value="imageButton").submit()
+    WebDriverWait(driver, 3).until(EC.title_is("We Arrive Here"))
 
-    def _pageURL(self, name):
-        return self.webserver.where_is(name + '.html')
+    driver.back()
+    assert driver.title == "We Leave From Here"
 
-    def _loadSimplePage(self):
-        self._loadPage("simpleTest")
+    driver.forward()
+    assert driver.title == "We Arrive Here"
 
-    def _loadPage(self, name):
-        self.driver.get(self._pageURL(name))
+
+@pytest.mark.xfail_ie
+@pytest.mark.xfail_marionette(run=False)
+def testShouldNotHangifDocumentOpenCallIsNeverFollowedByDocumentCloseCall(driver, pages):
+    pages.load("document_write_in_onload.html")
+    driver.find_element(By.XPATH, "//body")
+
+
+def testShouldBeAbleToRefreshAPage(driver, pages):
+    pages.load("xhtmlTest.html")
+
+    driver.refresh()
+
+    assert driver.title == "XHTML Test Page"

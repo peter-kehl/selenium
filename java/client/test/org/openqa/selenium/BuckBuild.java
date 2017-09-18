@@ -29,9 +29,9 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 
 import org.openqa.selenium.os.CommandLine;
+import org.openqa.selenium.os.ExecutableFinder;
 import org.openqa.selenium.testing.InProject;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -51,7 +51,7 @@ public class BuckBuild {
   }
 
   public Path go() throws IOException {
-    Path projectRoot = InProject.locate("Rakefile").toPath().getParent();
+    Path projectRoot = InProject.locate("Rakefile").getParent();
 
     if (!isInDevMode()) {
       // we should only need to do this when we're in dev mode
@@ -68,8 +68,7 @@ public class BuckBuild {
 
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     findBuck(projectRoot, builder);
-    builder.add("build");
-    builder.add(target);
+    builder.add("build", "--config", "color.ui=never", target);
 
     ImmutableList<String> command = builder.build();
     CommandLine commandLine = new CommandLine(command.toArray(new String[command.size()]));
@@ -86,7 +85,7 @@ public class BuckBuild {
   private Path findOutput(Path projectRoot) throws IOException {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     findBuck(projectRoot, builder);
-    builder.add("targets", "--show-output", target);
+    builder.add("targets", "--show-full-output", "--config", "color.ui=never", target);
 
     ImmutableList<String> command = builder.build();
     CommandLine commandLine = new CommandLine(command.toArray(new String[command.size()]));
@@ -97,7 +96,8 @@ public class BuckBuild {
       throw new WebDriverException("Unable to find output! " + target);
     }
 
-    String[] allLines = commandLine.getStdOut().split(LINE_SEPARATOR.value());
+    String stdOut = commandLine.getStdOut();
+    String[] allLines = stdOut.split(LINE_SEPARATOR.value());
     String lastLine = null;
     for (String line : allLines) {
       if (line.startsWith(target)) {
@@ -105,7 +105,7 @@ public class BuckBuild {
         break;
       }
     }
-    Preconditions.checkNotNull(lastLine);
+    Preconditions.checkNotNull(lastLine, "Value read: %s", stdOut);
 
     List<String> outputs = Splitter.on(' ').limit(2).splitToList(lastLine);
     if (outputs.size() != 2) {
@@ -129,7 +129,7 @@ public class BuckBuild {
     // If there's a .nobuckcheck in the root of the file, and we can execute "buck", then assume
     // that the developer knows what they're doing. Ha! Ahaha! Ahahahaha!
     if (Files.exists(noBuckCheck)) {
-      String buckCommand = CommandLine.find("buck");
+      String buckCommand = new ExecutableFinder().find("buck");
       if (buckCommand != null) {
         builder.add(buckCommand);
         return;
@@ -141,7 +141,7 @@ public class BuckBuild {
 
   private void downloadBuckPexIfNecessary(ImmutableList.Builder<String> builder)
     throws IOException {
-    Path projectRoot = InProject.locate("Rakefile").getParentFile().toPath();
+    Path projectRoot = InProject.locate("Rakefile").getParent();
     String buckVersion = new String(Files.readAllBytes(projectRoot.resolve(".buckversion"))).trim();
 
     Path pex = projectRoot.resolve("buck-out/crazy-fun/" + buckVersion + "/buck.pex");
@@ -174,9 +174,9 @@ public class BuckBuild {
     }
 
     if (Platform.getCurrent().is(WINDOWS)) {
-      String python = CommandLine.find("python2");
+      String python = new ExecutableFinder().find("python2");
       if (python == null) {
-        python = CommandLine.find("python");
+        python = new ExecutableFinder().find("python");
       }
       Preconditions.checkNotNull(python, "Unable to find python executable");
       builder.add(python);

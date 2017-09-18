@@ -16,38 +16,30 @@
 # under the License.
 
 import psutil
-import unittest
-import logging
+
 from selenium import webdriver
 
 
-class PhantomJSLauncherTests(unittest.TestCase):
+def testLaunchAndCloseBrowserWithoutLeakingCookieTempFileDescriptor():
 
-    def testLaunchAndCloseBrowserWithoutLeakingCookieTempFileDescriptor(self):
+    # psutil module is used to get num open file descritors across platforms
+    p = psutil.Process()
 
-        # psutil module is used to get num open file descritors across platforms
-        self.p = psutil.Process()
+    num_fds_samples = []
 
-        self.num_fds_samples = []
+    driver = webdriver.PhantomJS()
+    driver.quit()
 
-        self.driver = webdriver.PhantomJS()
-        self.driver.quit()
+    num_fds_samples.append(p.num_fds())
 
-        self.num_fds_samples.append(self.p.num_fds())
+    driver = webdriver.PhantomJS()
+    driver.quit()
 
-        self.driver = webdriver.PhantomJS()
-        self.driver.quit()
+    num_fds_samples.append(p.num_fds())
 
-        self.num_fds_samples.append(self.p.num_fds())
+    driver = webdriver.PhantomJS()
+    driver.quit()
 
-        self.driver = webdriver.PhantomJS()
-        self.driver.quit()
+    num_fds_samples.append(p.num_fds())
 
-        self.num_fds_samples.append(self.p.num_fds())
-
-        assert max(self.num_fds_samples) == min(self.num_fds_samples)
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    unittest.main()
+    assert max(num_fds_samples) == min(num_fds_samples)

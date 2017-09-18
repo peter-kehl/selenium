@@ -9,6 +9,146 @@ available via the project downloads page. Changes in "revision" field indicate
 private releases checked into the prebuilts directory of the source tree, but
 not made generally available on the downloads page.
 
+v3.5.1.1
+========
+ * Updated to better support W3C WebDriver Specification. This is a large
+   update that includes implementation of the following things that are part
+   of the WebDriver spec:
+   * Implement the "get element property" command
+   * Implement the "get named cookie" command
+   * Implement the "minimize window" command
+   * Implement the "fullscreen window" command
+   * Update "set window rect" command to correctly recognize and restore 
+     from minimized or full screen state
+   * Fix the "release actions" command to properly roll back all pending
+     actions
+   * Update the "perform actions" command to be more robust for pointer
+     actions
+   * Fix alert handling to handle dialogs with the "Do not show any more
+     dialogs" check box
+   * Added handling for the "dismiss and notify" and "accept and notify"
+     user prompt handler states
+   * Updated proxy handling to more closely align with the spec language
+
+v3.5.1.0
+========
+ * Updates to JavaScript automation atoms.
+ * Updated IE driver atoms to properly return element position. A recent
+   update to the Closure compiler caused a regression in the IE driver as
+   it was more aggressive about renaming properties of objects returned
+   from JavaScript functions than previous versions. This release adds a
+   custom IE-only atom that avoids this behavior of the compiler, and lets
+   the driver properly return an element's location. Fixes issue #4480.
+
+v3.5.0.0
+========
+ * Release to synchronize with release of Selenium project.
+ * Updates to JavaScript automation atoms.
+ * To successfully use this version of the IE driver, you should be using
+   version 3.5 or above of the language bindings. Those are the only versions
+   of language bindings that will understand the payload required to be sent
+   during the creation of a new session. Earlier versions of the language
+   bindings are not guaranteed to be fully compatible with this release of
+   the IE driver.
+
+v3.4.0.1
+========
+ * This release adds the remote protocol end points and handling of commands
+   as required by the W3C WebDriver Specification for the IE driver. It
+   deprecates and mostly removes behavior that is at odds with the
+   specification, but may have been the proper behavior under the open-source
+   dialect of the protocol. Issues arising from this version of the driver
+   that appeared to work in previous versions will only be addressed if a
+   simple test case is provided that demonstrates it working in a prior
+   version of the driver and failing in this one. Reported issues lacking
+   such a test case will be summarily closed.
+
+v3.4.0.0
+========
+ * Release to synchronize with release of Selenium project.
+
+v3.3.0.3
+========
+ * The IE file upload dialog may not be a direct child of the IE window.
+   This has become very clear in testing the previous rewrite of the file
+   upload dialog handling code. This version fixes that problem, and should
+   now correctly find the dialog, even if it isn't directly a child of the
+   top-level IE frame window.
+
+v3.3.0.2
+========
+ * Updates to JavaScript automation atoms.
+ * Rewriting file upload dialog handling code. Previously, the IE driver
+   would use simple window handling and Windows APIs to find and manipulate
+   the IE file selection dialog for the file upload case. With this change,
+   the driver now uses the Windows UI Automation library that ships as part
+   of the Windows operating system to detect and manipulate the dialog.
+   Unfortunately, since handling native dialogs this way is highly OS-
+   dependent, there may be changes in behavior based on different versions
+   of Windows, or different versions of IE. At the moment, this change
+   has been tested against Windows 10, and IE 11. Other versions may not
+   work exactly the same. Temporarily, to retain backward compatibility,
+   it's possible to use the legacy handling with the file upload dialog
+   box. This can be set by setting a capability of
+   "ie.useLegacyFileUploadDialogHandling" to true. This capability is only
+   intended to be provided temporarily, and will be removed as soon as is
+   practical. As such, the capability is not documented, and its presence
+   should not be relied on over the long term. It should be pointed out
+   that, as has been the case since July 2016, the driver now only supports
+   IE versions 9, 10, and 11, and only supports Windows Vista and above.
+
+v3.3.0.1
+========
+ * Updates to JavaScript automation atoms.
+ * Implementing IE driver custom capabilities in sub-object. As of this 
+   version, all IE-only capabilities should be put in a JSON object and
+   that object assigned to a property named "se:ieOptions" in the
+   capabilities object passed to the driver when starting a new session.
+   The only top-level capabilities that the driver will now recognize are
+   "browserName", "unexpectedAlertBehaviour", "pageLoadStrategy", and
+   "proxy". As has always been the case, with the IE driver unknown
+   capability names will be ignored. For the moment, this change is backward
+   compatible with language bindings that do not use the new capability
+   format, but this will change in the future, and IE-only capabilities that
+   are set at the top level of the capabilities object (i.e., not in a
+   sub-object that is the value of a property named "se:ieOptions") will
+   eventually be ignored.
+
+v3.3.0.0
+========
+ * Release to synchronize with release of Selenium project.
+
+v3.2.0.0
+========
+ * Release to synchronize with release of Selenium project.
+
+v3.1.0.1
+========
+ * Code reorganization and cleanup, mostly reorganizing header files.
+ * Removing support for the Microsoft IE driver implementation. This
+   implementation has been entirely abandoned by Microsoft, and is
+   unlikely to ever receive more attention.
+
+v3.1.0.0
+========
+ * Release to synchronize with release of Selenium project.
+ * Updates to JavaScript automation atoms.
+
+v3.0.0.0
+========
+ * Release to synchronize with release of Selenium project.
+
+v2.53.1.1
+=========
+ * Updates to JavaScript automation atoms.
+ * Fall back to using browser instead of document to get current URL. To 
+   maintain compatibility with other WebDriver implementations, the IE
+   driver uses the IHTMLDocument2 interface to get the current URL, so
+   that the proper URL is returned even when an embedded frame has the
+   focus. However, when browsing a non-HTML document (like a PDF), the
+   driver cannot get an IHTMLDocument2. In that case, fall back to the
+   IWebBrowser2 interface.
+
 v2.53.1.0
 =========
  * Updates to JavaScript automation atoms, including update to wgxpath.

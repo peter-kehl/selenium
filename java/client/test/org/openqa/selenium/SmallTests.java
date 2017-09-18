@@ -16,13 +16,12 @@
 // under the License.
 package org.openqa.selenium;
 
-import org.openqa.selenium.interactions.ActionsTest;
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite;
 import org.openqa.selenium.interactions.CompositeActionTest;
 import org.openqa.selenium.interactions.IndividualKeyboardActionsTest;
 import org.openqa.selenium.interactions.IndividualMouseActionsTest;
-
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
+import org.openqa.selenium.interactions.PointerInputTest;
 import org.openqa.selenium.io.FileHandlerTest;
 import org.openqa.selenium.io.TemporaryFilesystemTest;
 import org.openqa.selenium.io.ZipTest;
@@ -32,20 +31,21 @@ import org.openqa.selenium.net.LinuxEphemeralPortRangeDetectorTest;
 import org.openqa.selenium.net.NetworkUtilsTest;
 import org.openqa.selenium.os.CommandLineTest;
 import org.openqa.selenium.os.WindowsUtilsUnitTest;
-import org.openqa.selenium.testing.drivers.IgnoreComparitorUnitTest;
+import org.openqa.selenium.testing.drivers.IgnoreComparatorUnitTest;
 
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
-    ActionsTest.class,
     ByTest.class,
     CommandLineTest.class,
     CookieTest.class,
     CompositeActionTest.class,
     DimensionTest.class,
     FileHandlerTest.class,
-    IgnoreComparitorUnitTest.class,
+    IgnoreComparatorUnitTest.class,
+    ImmutableCapabilitiesTest.class,
     IndividualKeyboardActionsTest.class,
     IndividualMouseActionsTest.class,
+    KeysTest.class,
     LinuxEphemeralPortRangeDetectorTest.class,
     LoggingTest.class,
     NetworkUtilsTest.class,
@@ -53,6 +53,7 @@ import org.openqa.selenium.testing.drivers.IgnoreComparitorUnitTest;
     PerformanceLoggingMockTest.class,
     PlatformTest.class,
     PointTest.class,
+    PointerInputTest.class,
     ProxyTest.class,
     TemporaryFilesystemTest.class,
     WebDriverExceptionTest.class,

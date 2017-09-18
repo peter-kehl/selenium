@@ -35,8 +35,12 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
 
 public class JsonToBeanConverter {
+
+  private ErrorCodes errorCodes = new ErrorCodes();
 
   public <T> T convert(Class<T> clazz, Object source) throws JsonException {
     try {
@@ -116,23 +120,23 @@ public class JsonToBeanConverter {
       if (json.has("error") && ! json.get("error").isJsonNull()) {
         String state = json.get("error").getAsString();
         response.setState(state);
-        response.setStatus(ErrorCodes.toStatus(state));
+        response.setStatus(errorCodes.toStatus(state, Optional.empty()));
         response.setValue(convert(Object.class, json.get("message")));
       }
       if (json.has("state") && ! json.get("state").isJsonNull()) {
         String state = json.get("state").getAsString();
         response.setState(state);
-        response.setStatus(ErrorCodes.toStatus(state));
+        response.setStatus(errorCodes.toStatus(state, Optional.empty()));
       }
       if (json.has("status") && ! json.get("status").isJsonNull()) {
         JsonElement status = json.get("status");
         if (status.getAsJsonPrimitive().isString()) {
           String state = status.getAsString();
           response.setState(state);
-          response.setStatus(ErrorCodes.toStatus(state));
+          response.setStatus(errorCodes.toStatus(state, Optional.empty()));
         } else {
           int intStatus = status.getAsInt();
-          response.setState(ErrorCodes.toState(intStatus));
+          response.setState(errorCodes.toState(intStatus));
           response.setStatus(intStatus);
         }
       }
@@ -237,10 +241,6 @@ public class JsonToBeanConverter {
     return null;
   }
 
-  private Object convertJsonPrimitive(JsonElement json) {
-    return convertJsonPrimitive(json.getAsJsonPrimitive());
-  }
-
   private Object convertJsonPrimitive(JsonPrimitive json) {
     if (json.isBoolean()) {
       return json.getAsBoolean();
@@ -256,22 +256,27 @@ public class JsonToBeanConverter {
     }
   }
 
-  @SuppressWarnings("unchecked")
-  private Enum convertEnum(Class clazz, Object text) {
-    if (clazz.isEnum()) {
-      if (text instanceof JsonElement) {
-        return Enum.valueOf(clazz, (String) convertJsonPrimitive((JsonElement) text));
+  private Enum<?> convertEnum(Class<?> clazz, Object text) {
+    String toConvert = text instanceof JsonElement ?
+                       ((JsonElement) text).getAsString() : String.valueOf(text);
+
+    Function<Class<?>, Enum<?>> asEnum = (c) -> {
+      for (Object value : c.getEnumConstants()) {
+        if (value.toString().equalsIgnoreCase(toConvert)) {
+          return (Enum<?>) value;
+        }
       }
-      return Enum.valueOf(clazz, String.valueOf(text));
+      throw new IllegalArgumentException("Unable to map to enum: " + clazz + ", " + text);
+    };
+
+    if (clazz.isEnum()) {
+      return asEnum.apply(clazz);
     }
 
-    Class[] allClasses = clazz.getClasses();
-    for (Class current : allClasses) {
+    Class<?>[] allClasses = clazz.getClasses();
+    for (Class<?> current : allClasses) {
       if (current.isEnum()) {
-        if (text instanceof JsonElement) {
-          return Enum.valueOf(current, (String) convertJsonPrimitive((JsonElement) text));
-        }
-        return Enum.valueOf(current, String.valueOf(text));
+        return asEnum.apply(current);
       }
     }
 

@@ -63,6 +63,55 @@ class presence_of_element_located(object):
         return _find_element(driver, self.locator)
 
 
+class url_contains(object):
+    """ An expectation for checking that the current url contains a
+    case-sensitive substring.
+    url is the fragment of url expected,
+    returns True when the title matches, False otherwise
+    """
+    def __init__(self, url):
+        self.url = url
+
+    def __call__(self, driver):
+        return self.url in driver.current_url
+
+
+class url_matches(object):
+    """An expectation for checking the current url.
+    pattern is the expected pattern, which must be an exact match
+    returns True if the title matches, false otherwise."""
+    def __init__(self, pattern):
+        self.pattern = pattern
+
+    def __call__(self, driver):
+        import re
+        match = re.search(self.pattern, driver.current_url)
+
+        return match is not None
+
+
+class url_to_be(object):
+    """An expectation for checking the current url.
+    url is the expected url, which must be an exact match
+    returns True if the title matches, false otherwise."""
+    def __init__(self, url):
+        self.url = url
+
+    def __call__(self, driver):
+        return self.url == driver.current_url
+
+
+class url_changes(object):
+    """An expectation for checking the current url.
+    url is the expected url, which must not be an exact match
+    returns True if the url is different, false otherwise."""
+    def __init__(self, url):
+        self.url = url
+
+    def __call__(self, driver):
+        return self.url != driver.current_url
+
+
 class visibility_of_element_located(object):
     """ An expectation for checking that an element is present on the DOM of a
     page and visible. Visibility means that the element is not only displayed
@@ -122,6 +171,27 @@ class visibility_of_any_elements_located(object):
 
     def __call__(self, driver):
         return [element for element in _find_elements(driver, self.locator) if _element_if_visible(element)]
+
+
+class visibility_of_all_elements_located(object):
+    """ An expectation for checking that all elements are present on the DOM of a
+    page and visible. Visibility means that the elements are not only displayed
+    but also has a height and width that is greater than 0.
+    locator - used to find the elements
+    returns the list of WebElements once they are located and visible
+    """
+    def __init__(self, locator):
+        self.locator = locator
+
+    def __call__(self, driver):
+        try:
+            elements = _find_elements(driver, self.locator)
+            for element in elements:
+                if _element_if_visible(element, visibility=False):
+                    return False
+            return elements
+        except StaleElementReferenceException:
+            return False
 
 
 class text_to_be_present_in_element(object):
@@ -284,6 +354,27 @@ class element_located_selection_state_to_be(object):
             return element.is_selected() == self.is_selected
         except StaleElementReferenceException:
             return False
+
+
+class number_of_windows_to_be(object):
+    """ An expectation for the number of windows to be a certain value."""
+
+    def __init__(self, num_windows):
+        self.num_windows = num_windows
+
+    def __call__(self, driver):
+        return len(driver.window_handles) == self.num_windows
+
+
+class new_window_is_opened(object):
+    """ An expectation that a new window will be opened and have the number of
+    windows handles increase"""
+
+    def __init__(self, current_handles):
+        self.current_handles = current_handles
+
+    def __call__(self, driver):
+        return len(driver.window_handles) > len(self.current_handles)
 
 
 class alert_is_present(object):

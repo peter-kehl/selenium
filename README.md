@@ -1,13 +1,15 @@
-# Selenium
+Selenium [![Travis Status](https://travis-ci.org/SeleniumHQ/selenium.svg?branch=master)](//travis-ci.org/SeleniumHQ/selenium) [![AppVeyor Status](https://ci.appveyor.com/api/projects/status/pg1f99p1aetp9mk9/branch/master?svg=true)](https://ci.appveyor.com/project/SeleniumHQ/selenium/branch/master)
+========
+[![SeleniumHQ](http://www.seleniumhq.org/images/big-logo.png)](http://www.seleniumhq.org/)
 
-Selenium is an umbrella project encapsulating a variety of tools and 
-libraries enabling web browser automation. Selenium specifically 
-provides infrastructure for the [W3C WebDriver specification](https://dvcs.w3.org/hg/webdriver/raw-file/tip/webdriver-spec.html) 
-— a platform and language-neutral coding interface compatible with all 
+Selenium is an umbrella project encapsulating a variety of tools and
+libraries enabling web browser automation. Selenium specifically
+provides infrastructure for the [W3C WebDriver specification](https://dvcs.w3.org/hg/webdriver/raw-file/tip/webdriver-spec.html)
+— a platform and language-neutral coding interface compatible with all
 major web browsers.
 
-The project is made possible by volunteer contributors who've 
-generously donated thousands of hours in code development and upkeep. 
+The project is made possible by volunteer contributors who've
+generously donated thousands of hours in code development and upkeep.
 
 Selenium's source code is made available under the [Apache 2.0 license](https://github.com/SeleniumHQ/selenium/blob/master/LICENSE).
 
@@ -28,7 +30,7 @@ API documentation:
 
 ## Pull Requests
 
-Please read [CONTRIBUTING.md](https://github.com/SeleniumHQ/selenium/blob/master/CONTRIBUTING.md) 
+Please read [CONTRIBUTING.md](https://github.com/SeleniumHQ/selenium/blob/master/CONTRIBUTING.md)
 before submitting your pull requests.
 
 ## Building
@@ -42,9 +44,9 @@ see directories carrying multiple build directive files.
 For reference, crazyfun's build files are named *build.desc*,
 while buck's are named simply *BUCK*.
 
-Before building ensure that you have the 
+Before building ensure that you have the
 [most recent `chromedriver` ](https://sites.google.com/a/chromium.org/chromedriver/downloads)
-available on your `$PATH`.  
+available on your `$PATH`. You may have to update this from time to time.
 
 To build Selenium, in the same directory as this file:
 
@@ -128,7 +130,7 @@ Note that all Selenium Java artefacts are **built with Java 8
 ### Optional Requirements
 
 * Python 2.6.x to 2.7 (without this, Python tests will be skipped)
-* Ruby 1.9.3
+* Ruby 2.0
 
 ### Internet Explorer Driver
 
@@ -139,12 +141,12 @@ you also need:
 * [Visual Studio 2008](http://www.microsoft.com/visualstudio/en-gb/products/2008-editions)
 * 32 and 64 bit cross compilers
 
-The build will work on any platform, but the tests for IE will be 
+The build will work on any platform, but the tests for IE will be
 skipped silently, if you are not building on Windows.
 
 ## Common Tasks
 
-For an express build of the binaries we release run the following from 
+For an express build of the binaries we release run the following from
 the directory containing the `Rakefile`:
 
 ```sh
@@ -166,7 +168,6 @@ want to build a single driver, then you can run one of these targets:
 ```sh
 ./go chrome
 ./go firefox
-./go htmlunit
 ./go ie
 ```
 
@@ -285,8 +286,8 @@ targets.
 ## Maven _per se_
 
 If it is not clear already, Selenium is not built with Maven, it is
-built with [Buck](https://github.com/SeleniumHQ/buck), 
-though that is invoked with *go* as outlined above so you do not really 
+built with [Buck](https://github.com/SeleniumHQ/buck),
+though that is invoked with *go* as outlined above so you do not really
 have to learn too much about that.
 
 That said, it is possible to relatively quickly build selenium pieces
@@ -314,5 +315,5 @@ the name.
 ## Useful Resources
 
 Refer to the [Building Web
-Driver](https://github.com/SeleniumHQ/selenium/wiki/Building-WebDriver) 
+Driver](https://github.com/SeleniumHQ/selenium/wiki/Building-WebDriver)
 wiki page for the last word on building the bits and pieces of Selenium.

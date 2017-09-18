@@ -48,6 +48,15 @@ module Selenium
           end
         end
 
+        #
+        # Returns javascript_enabled capability.
+        # It is true if not set explicitly.
+        #
+        def javascript_enabled
+          javascript_enabled = @capabilities.fetch(:javascript_enabled)
+          javascript_enabled.nil? ? true : javascript_enabled
+        end
+
         alias_method :css_selectors_enabled?, :css_selectors_enabled
         alias_method :javascript_enabled?, :javascript_enabled
         alias_method :native_events?, :native_events
@@ -63,19 +72,21 @@ module Selenium
             new({
               browser_name: 'chrome',
               javascript_enabled: true,
-              css_selectors_enabled: true,
-              loggingPrefs: {browser: 'ALL',
-                             driver: 'ALL'}
+              css_selectors_enabled: true
             }.merge(opts))
           end
 
           def edge(opts = {})
-            W3CCapabilities.edge(opts)
+            new({
+              browser_name: 'MicrosoftEdge',
+              platform: :windows,
+              javascript_enabled: true,
+              takes_screenshot: true,
+              css_selectors_enabled: true
+            }.merge(opts))
           end
 
           def firefox(opts = {})
-            return W3CCapabilities.firefox(opts) unless opts[:marionette] == false
-
             new({
               browser_name: 'firefox',
               javascript_enabled: true,
@@ -137,7 +148,7 @@ module Selenium
             caps = new
             caps.browser_name          = data.delete('browserName')
             caps.version               = data.delete('version')
-            caps.platform              = data.delete('platform').downcase.to_sym if data.key?('platform')
+            caps.platform              = data.delete('platform').downcase.tr(' ', '_').to_sym if data.key?('platform')
             caps.javascript_enabled    = data.delete('javascriptEnabled')
             caps.css_selectors_enabled = data.delete('cssSelectorsEnabled')
             caps.takes_screenshot      = data.delete('takesScreenshot')
@@ -152,6 +163,7 @@ module Selenium
           end
         end
 
+        #
         # @option :browser_name           [String] required browser name
         # @option :version                [String] required browser version number
         # @option :platform               [Symbol] one of :any, :win, :mac, or :x
@@ -206,6 +218,7 @@ module Selenium
           end
         end
 
+        #
         # @api private
         #
 

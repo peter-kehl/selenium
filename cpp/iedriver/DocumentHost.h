@@ -17,16 +17,17 @@
 #ifndef WEBDRIVER_IE_DOCUMENTHOST_H_
 #define WEBDRIVER_IE_DOCUMENTHOST_H_
 
-#include <string>
 #include <map>
 #include <memory>
-#include "ErrorCodes.h"
+#include <string>
+
 #include "LocationInfo.h"
 
 #define EELEMENTCLICKPOINTNOTSCROLLED 100
 
 namespace webdriver {
 
+// Forward declaration of classes.
 class BrowserCookie;
 class CookieManager;
 
@@ -60,6 +61,10 @@ class DocumentHost {
   virtual int Refresh(void) = 0;
 
   virtual bool IsValidWindow(void) = 0;
+
+  virtual bool IsFullScreen(void) = 0;
+  virtual bool SetFullScreen(bool is_full_screen) = 0;
+  void Restore(void);
 
   std::string GetCurrentUrl(void);
   std::string GetPageSource(void);
@@ -109,8 +114,6 @@ class DocumentHost {
   bool wait_required_;
   bool is_closing_;
 };
-
-typedef std::tr1::shared_ptr<DocumentHost> BrowserHandle;
 
 } // namespace webdriver
 

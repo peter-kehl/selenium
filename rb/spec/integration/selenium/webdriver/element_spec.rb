@@ -22,28 +22,24 @@ require_relative 'spec_helper'
 module Selenium
   module WebDriver
     describe Element do
-      before do
-        compliant_on browser: :safari do
-          sleep 0.5 # Some kind of race condition preventing initial navigation; only on safari
-        end
-      end
-
       it 'should click' do
         driver.navigate.to url_for('formPage.html')
         driver.find_element(id: 'imageButton').click
       end
 
-      compliant_on browser: [:chrome, :ff_legacy] do
-        it 'should raise if different element receives click' do
-          driver.navigate.to url_for('click_tests/overlapping_elements.html')
-          element_error = 'Other element would receive the click: <div id="over"><\/div>'
-          error = /Element is not clickable at point \(\d+, \d+\)\. #{element_error}/
-          expect { driver.find_element(id: 'contents').click }
-            .to raise_error(Selenium::WebDriver::Error::UnknownError, error)
+      compliant_on browser: [:chrome, :ff_esr] do
+        not_compliant_on driver: :remote, platform: :macosx do
+          it 'should raise if different element receives click' do
+            driver.navigate.to url_for('click_tests/overlapping_elements.html')
+            element_error = 'Other element would receive the click: <div id="over"><\/div>'
+            error = /is not clickable at point \(\d+, \d+\)\. #{element_error}/
+            expect { driver.find_element(id: 'contents').click }
+              .to raise_error(Selenium::WebDriver::Error::UnknownError, error)
+          end
         end
       end
 
-      compliant_on browser: [:firefox, :ff_legacy] do
+      compliant_on browser: [:firefox, :ff_esr, :ff_nightly] do
         it 'should not raise if element is only partially covered' do
           driver.navigate.to url_for('click_tests/overlapping_elements.html')
           expect { driver.find_element(id: 'other_contents').click }.not_to raise_error
@@ -62,8 +58,7 @@ module Selenium
         driver.find_element(id: 'working').send_keys('foo', 'bar')
       end
 
-      # Firefox - https://bugzilla.mozilla.org/show_bug.cgi?id=1260233
-      not_compliant_on browser: :firefox do
+      not_compliant_on browser: :safari do
         it 'should send key presses' do
           driver.navigate.to url_for('javascriptPage.html')
           key_reporter = driver.find_element(id: 'keyReporter')
@@ -73,9 +68,21 @@ module Selenium
         end
       end
 
+      # https://github.com/mozilla/geckodriver/issues/245
+      compliant_on browser: %i[ff_esr chrome] do
+        it 'should send key presses chords' do
+          driver.navigate.to url_for('javascriptPage.html')
+          key_reporter = driver.find_element(id: 'keyReporter')
+
+          key_reporter.send_keys([:shift, 'h'], 'ello')
+          expect(key_reporter.attribute('value')).to eq('Hello')
+        end
+      end
+
       # PhantomJS on windows issue: https://github.com/ariya/phantomjs/issues/10993
-      # Firefox - https://bugzilla.mozilla.org/show_bug.cgi?id=1260233
-      not_compliant_on browser: [:safari, :edge, :firefox, :phantomjs] do
+      # https://github.com/mozilla/geckodriver/issues/644
+      # https://github.com/mozilla/geckodriver/issues/858
+      not_compliant_on browser: [:safari, :edge, :phantomjs, :ff_nightly, :firefox] do
         it 'should handle file uploads' do
           driver.navigate.to url_for('formPage.html')
 
@@ -100,6 +107,14 @@ module Selenium
       it 'should return nil for non-existent attributes' do
         driver.navigate.to url_for('formPage.html')
         expect(driver.find_element(id: 'withText').attribute('nonexistent')).to be_nil
+      end
+
+      # IE - Command not implemented
+      not_compliant_on browser: %i[edge ie] do
+        it 'should get property value' do
+          driver.navigate.to url_for('formPage.html')
+          expect(driver.find_element(id: 'withText').property('nodeName')).to eq('TEXTAREA')
+        end
       end
 
       it 'should clear' do
@@ -134,37 +149,52 @@ module Selenium
         expect(driver.find_element(class: 'header').text).to eq('XHTML Might Be The Future')
       end
 
-      it 'should get displayed' do
-        driver.navigate.to url_for('xhtmlTest.html')
-        expect(driver.find_element(class: 'header')).to be_displayed
+      not_compliant_on browser: :safari do
+        it 'should get displayed' do
+          driver.navigate.to url_for('xhtmlTest.html')
+          expect(driver.find_element(class: 'header')).to be_displayed
+        end
       end
 
-      it 'should get location' do
-        driver.navigate.to url_for('xhtmlTest.html')
-        loc = driver.find_element(class: 'header').location
+      context 'size and location' do
+        it 'should get current location' do
+          driver.navigate.to url_for('xhtmlTest.html')
+          loc = driver.find_element(class: 'header').location
 
-        expect(loc.x).to be >= 1
-        expect(loc.y).to be >= 1
+          expect(loc.x).to be >= 1
+          expect(loc.y).to be >= 1
+        end
+
+        it 'should get location once scrolled into view' do
+          driver.navigate.to url_for('javascriptPage.html')
+          loc = driver.find_element(id: 'keyUp').location_once_scrolled_into_view
+
+          expect(loc.x).to be >= 1
+          expect(loc.y).to be >= 0 # can be 0 if scrolled to the top
+        end
+
+        it 'should get size' do
+          driver.navigate.to url_for('xhtmlTest.html')
+          size = driver.find_element(class: 'header').size
+
+          expect(size.width).to be > 0
+          expect(size.height).to be > 0
+        end
+
+        it 'should get rect' do
+          driver.navigate.to url_for('xhtmlTest.html')
+          rect = driver.find_element(class: 'header').rect
+
+          expect(rect.x).to be > 0
+          expect(rect.y).to be > 0
+          expect(rect.width).to be > 0
+          expect(rect.height).to be > 0
+        end
       end
 
-      it 'should get location once scrolled into view' do
-        driver.navigate.to url_for('javascriptPage.html')
-        loc = driver.find_element(id: 'keyUp').location_once_scrolled_into_view
-
-        expect(loc.x).to be >= 1
-        expect(loc.y).to be >= 0 # can be 0 if scrolled to the top
-      end
-
-      it 'should get size' do
-        driver.navigate.to url_for('xhtmlTest.html')
-        size = driver.find_element(class: 'header').size
-
-        expect(size.width).to be > 0
-        expect(size.height).to be > 0
-      end
-
-      # Firefox - "Actions Endpoint Not Yet Implemented"
-      not_compliant_on browser: [:safari, :firefox] do
+      # Firefox - Pointer actions not in firefox stable yet
+      # IE - https://github.com/SeleniumHQ/selenium/pull/4043
+      not_compliant_on browser: [:safari, :firefox, :ff_nightly, :ie] do
         it 'should drag and drop' do
           driver.navigate.to url_for('dragAndDropTest.html')
 
@@ -195,9 +225,21 @@ module Selenium
 
         body = driver.find_element(tag_name: 'body')
         xbody = driver.find_element(xpath: '//body')
+        jsbody = driver.execute_script('return document.getElementsByTagName("body")[0]')
 
         expect(body).to eq(xbody)
+        expect(body).to eq(jsbody)
         expect(body).to eql(xbody)
+        expect(body).to eql(jsbody)
+      end
+
+      it 'should know when element arrays are equal' do
+        driver.navigate.to url_for('simpleTest.html')
+
+        tags = driver.find_elements(tag_name: 'div')
+        jstags = driver.execute_script('return document.getElementsByTagName("div")')
+
+        expect(tags).to eq(jstags)
       end
 
       it 'should know when two elements are not equal' do

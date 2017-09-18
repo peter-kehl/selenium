@@ -67,7 +67,7 @@ class WebDriver(RemoteWebDriver):
                 command_executor=ChromeRemoteConnection(
                     remote_server_addr=self.service.service_url),
                 desired_capabilities=desired_capabilities)
-        except:
+        except Exception:
             self.quit()
             raise
         self._is_remote = False
@@ -76,6 +76,39 @@ class WebDriver(RemoteWebDriver):
         """Launches Chrome app specified by id."""
         return self.execute("launchApp", {'id': id})
 
+    def get_network_conditions(self):
+        """
+        Gets Chrome network emulation settings.
+
+        :Returns:
+            A dict. For example:
+
+            {'latency': 4, 'download_throughput': 2, 'upload_throughput': 2,
+            'offline': False}
+
+        """
+        return self.execute("getNetworkConditions")['value']
+
+    def set_network_conditions(self, **network_conditions):
+        """
+        Sets Chrome network emulation settings.
+
+        :Args:
+         - network_conditions: A dict with conditions specification.
+
+        :Usage:
+            driver.set_network_conditions(
+                offline=False,
+                latency=5,  # additional latency (ms)
+                download_throughput=500 * 1024,  # maximal throughput
+                upload_throughput=500 * 1024)  # maximal throughput
+
+            Note: 'throughput' can be used to set both (for download and upload).
+        """
+        self.execute("setNetworkConditions", {
+            'network_conditions': network_conditions
+        })
+
     def quit(self):
         """
         Closes the browser and shuts down the ChromeDriver executable
@@ -83,7 +116,7 @@ class WebDriver(RemoteWebDriver):
         """
         try:
             RemoteWebDriver.quit(self)
-        except:
+        except Exception:
             # We don't care about the message because something probably has gone wrong
             pass
         finally:

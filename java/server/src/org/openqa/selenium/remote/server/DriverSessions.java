@@ -16,7 +16,6 @@
 // under the License.
 
 
-
 package org.openqa.selenium.remote.server;
 
 import org.openqa.selenium.Capabilities;
@@ -24,9 +23,10 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.remote.SessionId;
 
 import java.util.Set;
+import java.util.stream.Stream;
 
 public interface DriverSessions {
-  SessionId newSession(Capabilities desiredCapabilities) throws Exception;
+  SessionId newSession(Stream<Capabilities> desiredCapabilities) throws Exception;
 
   Session get(SessionId sessionId);
 

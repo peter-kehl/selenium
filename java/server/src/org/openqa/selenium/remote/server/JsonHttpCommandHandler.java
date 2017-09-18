@@ -22,12 +22,16 @@ import static org.openqa.selenium.remote.http.HttpMethod.POST;
 
 import org.openqa.selenium.UnsupportedCommandException;
 import org.openqa.selenium.remote.Command;
+import org.openqa.selenium.remote.CommandCodec;
 import org.openqa.selenium.remote.ErrorCodes;
 import org.openqa.selenium.remote.Response;
+import org.openqa.selenium.remote.ResponseCodec;
+import org.openqa.selenium.remote.SessionId;
 import org.openqa.selenium.remote.http.HttpRequest;
 import org.openqa.selenium.remote.http.HttpResponse;
 import org.openqa.selenium.remote.http.JsonHttpCommandCodec;
 import org.openqa.selenium.remote.http.JsonHttpResponseCodec;
+import org.openqa.selenium.remote.http.W3CHttpCommandCodec;
 import org.openqa.selenium.remote.server.handler.AcceptAlert;
 import org.openqa.selenium.remote.server.handler.AddConfig;
 import org.openqa.selenium.remote.server.handler.AddCookie;
@@ -101,6 +105,7 @@ import org.openqa.selenium.remote.server.handler.SwitchToFrame;
 import org.openqa.selenium.remote.server.handler.SwitchToParentFrame;
 import org.openqa.selenium.remote.server.handler.SwitchToWindow;
 import org.openqa.selenium.remote.server.handler.UploadFile;
+import org.openqa.selenium.remote.server.handler.W3CActions;
 import org.openqa.selenium.remote.server.handler.html5.ClearLocalStorage;
 import org.openqa.selenium.remote.server.handler.html5.ClearSessionStorage;
 import org.openqa.selenium.remote.server.handler.html5.GetAppCacheStatus;
@@ -132,11 +137,16 @@ import org.openqa.selenium.remote.server.handler.interactions.touch.SingleTapOnE
 import org.openqa.selenium.remote.server.handler.interactions.touch.Up;
 import org.openqa.selenium.remote.server.handler.mobile.GetNetworkConnection;
 import org.openqa.selenium.remote.server.handler.mobile.SetNetworkConnection;
+import org.openqa.selenium.remote.server.log.LoggingManager;
+import org.openqa.selenium.remote.server.log.PerSessionLogHandler;
 import org.openqa.selenium.remote.server.rest.RestishHandler;
 import org.openqa.selenium.remote.server.rest.ResultConfig;
 
+import java.io.IOException;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Logger;
 
 public class JsonHttpCommandHandler {
@@ -145,32 +155,36 @@ public class JsonHttpCommandHandler {
 
   private final DriverSessions sessions;
   private final Logger log;
-  private final JsonHttpCommandCodec commandCodec;
-  private final JsonHttpResponseCodec responseCodec;
+  private final Set<CommandCodec<HttpRequest>> commandCodecs;
+  private final ResponseCodec<HttpResponse> responseCodec;
   private final Map<String, ResultConfig> configs = new LinkedHashMap<>();
   private final ErrorCodes errorCodes = new ErrorCodes();
 
   public JsonHttpCommandHandler(DriverSessions sessions, Logger log) {
     this.sessions = sessions;
     this.log = log;
-    this.commandCodec = new JsonHttpCommandCodec();
+    this.commandCodecs = new LinkedHashSet<>();
+    this.commandCodecs.add(new JsonHttpCommandCodec());
+    this.commandCodecs.add(new W3CHttpCommandCodec());
     this.responseCodec = new JsonHttpResponseCodec();
     setUpMappings();
   }
 
   public void addNewMapping(
-      String commandName, Class<? extends RestishHandler<?>> implementationClass) {
+      String commandName,
+      Class<? extends RestishHandler<?>> implementationClass) {
     ResultConfig config = new ResultConfig(commandName, implementationClass, sessions, log);
     configs.put(commandName, config);
   }
 
-  public HttpResponse handleRequest(HttpRequest request) {
+  public void handleRequest(HttpRequest request, HttpResponse resp) throws IOException {
+    LoggingManager.perSessionLogHandler().clearThreadTempLogs();
     log.fine(String.format("Handling: %s %s", request.getMethod(), request.getUri()));
 
     Command command = null;
     Response response;
     try {
-      command = commandCodec.decode(request);
+      command = decode(request);
       ResultConfig config = configs.get(command.getName());
       if (config == null) {
         throw new UnsupportedCommandException();
@@ -188,11 +202,38 @@ public class JsonHttpCommandHandler {
         response.setSessionId(command.getSessionId().toString());
       }
     }
-    return responseCodec.encode(response);
+
+    PerSessionLogHandler handler = LoggingManager.perSessionLogHandler();
+    if (response.getSessionId() != null) {
+      handler.attachToCurrentThread(new SessionId(response.getSessionId()));
+    }
+    try {
+      responseCodec.encode(() -> resp, response);
+    } finally {
+      handler.detachFromCurrentThread();
+    }
+  }
+
+  private Command decode(HttpRequest request) {
+    UnsupportedCommandException lastException = null;
+    for (CommandCodec<HttpRequest> codec : commandCodecs) {
+      try {
+        return codec.decode(request);
+      } catch (UnsupportedCommandException e) {
+        lastException = e;
+      }
+    }
+    if (lastException != null) {
+      throw lastException;
+    }
+    throw new UnsupportedOperationException("Cannot find command for: " + request.getUri());
   }
 
   private void setUpMappings() {
-    commandCodec.defineCommand(ADD_CONFIG_COMMAND_NAME, POST, "/config/drivers");
+    for (CommandCodec<HttpRequest> codec : commandCodecs) {
+      codec.defineCommand(ADD_CONFIG_COMMAND_NAME, POST, "/config/drivers");
+    }
+
     addNewMapping(ADD_CONFIG_COMMAND_NAME, AddConfig.class);
 
     addNewMapping(STATUS, Status.class);
@@ -310,6 +351,8 @@ public class JsonHttpCommandHandler {
     addNewMapping(IME_DEACTIVATE, ImeDeactivate.class);
     addNewMapping(IME_ACTIVATE_ENGINE, ImeActivateEngine.class);
 
+    addNewMapping(ACTIONS, W3CActions.class);
+
     // Advanced Touch API
     addNewMapping(TOUCH_SINGLE_TAP, SingleTapOnElement.class);
     addNewMapping(TOUCH_DOWN, Down.class);
@@ -328,17 +371,8 @@ public class JsonHttpCommandHandler {
     addNewMapping(SET_NETWORK_CONNECTION, SetNetworkConnection.class);
 
     // Deprecated end points. Will be removed.
-    addNewMapping("getCurrentWindowHandleW3C", GetCurrentWindowHandle.class);
-    addNewMapping("getWindowHandlesW3C", GetAllWindowHandles.class);
-
-    addNewMapping("dimissAlertW3C", DismissAlert.class);
-    addNewMapping("acceptAlertW3C", AcceptAlert.class);
-    addNewMapping("getAlertTextW3C", GetAlertText.class);
-    addNewMapping("setAlertValueW3C", SetAlertText.class);
-    addNewMapping("executeScriptW3C", ExecuteScript.class);
-    addNewMapping("executeAsyncScriptW3C", ExecuteAsyncScript.class);
     addNewMapping("getWindowSize", GetWindowSize.class);
     addNewMapping("setWindowSize", SetWindowSize.class);
     addNewMapping("maximizeWindow", MaximizeWindow.class);
-    }
+  }
 }

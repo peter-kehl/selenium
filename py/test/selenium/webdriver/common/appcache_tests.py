@@ -15,34 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import unittest
-
 import pytest
+
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.html5.application_cache import ApplicationCache
 
 
-class AppCacheTests(unittest.TestCase):
+@pytest.mark.xfail_chrome
+@pytest.mark.xfail_marionette(raises=WebDriverException)
+@pytest.mark.xfail_phantomjs(raises=WebDriverException)
+@pytest.mark.xfail_remote
+def testWeCanGetTheStatusOfTheAppCache(driver, pages):
+    pages.load('html5Page')
+    driver.implicitly_wait(2)
+    app_cache = driver.application_cache
 
-    @pytest.mark.ignore_firefox
-    @pytest.mark.ignore_marionette
-    def testWeCanGetTheStatusOfTheAppCache(self):
-        if self.driver.capabilities['browserName'] == 'phantomjs':
-            pytest.xfail("phantomjs driver does not implement appcache")
-        self._loadPage('html5Page')
-        self.driver.implicitly_wait(2)
-        app_cache = self.driver.application_cache
-
+    status = app_cache.status
+    while status == ApplicationCache.DOWNLOADING:
         status = app_cache.status
-        while status == ApplicationCache.DOWNLOADING:
-            status = app_cache.status
 
-        self.assertEquals(ApplicationCache.UNCACHED, app_cache.status)
-
-    def _pageURL(self, name):
-        return self.webserver.where_is(name + '.html')
-
-    def _loadSimplePage(self):
-        self._loadPage("simpleTest")
-
-    def _loadPage(self, name):
-        self.driver.get(self._pageURL(name))
+    assert ApplicationCache.UNCACHED == app_cache.status

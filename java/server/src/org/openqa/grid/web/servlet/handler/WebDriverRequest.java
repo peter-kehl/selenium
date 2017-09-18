@@ -15,21 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 package org.openqa.grid.web.servlet.handler;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonSyntaxException;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import org.openqa.grid.common.exception.GridException;
 import org.openqa.grid.internal.ExternalSessionKey;
 import org.openqa.grid.internal.Registry;
-import org.openqa.grid.internal.TestSession;
-import org.openqa.selenium.remote.BeanToJsonConverter;
-import org.openqa.selenium.remote.JsonToBeanConverter;
+import org.openqa.selenium.Capabilities;
+import org.openqa.selenium.remote.server.NewSessionPayload;
 
+import java.io.Reader;
+import java.io.StringReader;
+import java.util.HashMap;
 import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
@@ -65,21 +63,19 @@ public class WebDriverRequest extends SeleniumBasedRequest {
   @Override
   public Map<String, Object> extractDesiredCapability() {
     String json = getBody();
-    try {
-      JsonObject map = new JsonParser().parse(json).getAsJsonObject();
-      JsonObject dc = map.get("desiredCapabilities").getAsJsonObject();
-      return new JsonToBeanConverter().convert(Map.class, dc);
 
-    } catch (JsonSyntaxException e) {
-      throw new GridException("Cannot extract a capabilities from the request " + json);
+    try (Reader in = new StringReader(json);
+         NewSessionPayload payload = new NewSessionPayload(json.getBytes(UTF_8).length, in)) {
+      Capabilities caps = payload.stream()
+          .findFirst()
+          .orElseThrow(() -> new GridException("No capabilities found in request: " + json));
+      Map<String, Object> toReturn = new HashMap<>();
+      toReturn.putAll(caps.asMap());
+      return toReturn;
+    } catch (GridException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new GridException("Cannot extract a capabilities from the request: " + json, e);
     }
-  }
-
-  @Override
-  public String getNewSessionRequestedCapability(TestSession session) {
-    JsonObject c = new JsonObject();
-    c.add("desiredCapabilities",
-          new BeanToJsonConverter().convertObject(session.getRequestedCapabilities()));
-    return new Gson().toJson(c);
   }
 }

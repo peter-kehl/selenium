@@ -34,8 +34,11 @@ import org.openqa.selenium.remote.JsonToBeanConverter;
 import org.openqa.selenium.remote.Response;
 import org.openqa.selenium.remote.ResponseCodec;
 
+import java.util.Optional;
+import java.util.function.Supplier;
+
 /**
- * A response codec that adheres to the W3C WebDriver wire protocol.
+ * A response codec usable as a base for both the JSON and W3C wire protocols.
  *
  * @see <a href="https://w3.org/tr/webdriver">W3C WebDriver spec</a>
  */
@@ -51,14 +54,14 @@ public abstract class AbstractHttpResponseCodec implements ResponseCodec<HttpRes
    * @return The encoded response.
    */
   @Override
-  public HttpResponse encode(Response response) {
+  public HttpResponse encode(Supplier<HttpResponse> factory, Response response) {
     int status = response.getStatus() == ErrorCodes.SUCCESS
                  ? HTTP_OK
                  : HTTP_INTERNAL_ERROR;
 
-    byte[] data = beanToJsonConverter.convert(response).getBytes(UTF_8);
+    byte[] data = beanToJsonConverter.convert(getValueToEncode(response)).getBytes(UTF_8);
 
-    HttpResponse httpResponse = new HttpResponse();
+    HttpResponse httpResponse = factory.get();
     httpResponse.setStatus(status);
     httpResponse.setHeader(CACHE_CONTROL, "no-cache");
     httpResponse.setHeader(EXPIRES, "Thu, 01 Jan 1970 00:00:00 GMT");
@@ -69,12 +72,14 @@ public abstract class AbstractHttpResponseCodec implements ResponseCodec<HttpRes
     return httpResponse;
   }
 
+  protected abstract Object getValueToEncode(Response response);
+
   @Override
   public Response decode(HttpResponse encodedResponse) {
     String contentType = nullToEmpty(encodedResponse.getHeader(CONTENT_TYPE));
     String content = encodedResponse.getContentString().trim();
     try {
-      return jsonToBeanConverter.convert(Response.class, content);
+      return reconstructValue(jsonToBeanConverter.convert(Response.class, content));
     } catch (JsonException e) {
       if (contentType.startsWith("application/json")) {
         throw new IllegalArgumentException(
@@ -115,6 +120,18 @@ public abstract class AbstractHttpResponseCodec implements ResponseCodec<HttpRes
       // turn this into \r\r\n, which would be Bad!
       response.setValue(((String) response.getValue()).replace("\r\n", "\n"));
     }
+
+    if (response.getStatus() != null && response.getState() == null) {
+      response.setState(errorCodes.toState(response.getStatus()));
+    } else if (response.getStatus() == null && response.getState() != null) {
+      response.setStatus(
+        errorCodes.toStatus(response.getState(),
+                            Optional.of(encodedResponse.getStatus())));
+    } else if (statusCode == 200) {
+      response.setStatus(ErrorCodes.SUCCESS);
+      response.setState(errorCodes.toState(ErrorCodes.SUCCESS));
+    }
+
     if (response.getStatus() != null) {
       response.setState(errorCodes.toState(response.getStatus()));
     } else if (statusCode == 200) {
@@ -122,4 +139,6 @@ public abstract class AbstractHttpResponseCodec implements ResponseCodec<HttpRes
     }
     return response;
   }
+
+  protected abstract Response reconstructValue(Response response);
 }

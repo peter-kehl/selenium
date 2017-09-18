@@ -90,15 +90,11 @@ module Selenium
         end
 
         def fetch_profile
-          if @profile_name
-            @profile = Profile.from_name @profile_name
-
-            unless @profile
-              raise Error::WebDriverError, "unable to find profile named: #{@profile_name.inspect}"
-            end
-          else
-            @profile = Profile.new
-          end
+          @profile = if @profile_name
+                       Profile.from_name @profile_name
+                     else
+                       Profile.new
+                     end
         end
 
         def assert_profile

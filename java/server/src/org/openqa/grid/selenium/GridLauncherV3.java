@@ -17,6 +17,7 @@
 
 package org.openqa.grid.selenium;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 
 import com.beust.jcommander.JCommander;
@@ -30,6 +31,7 @@ import org.openqa.grid.internal.utils.configuration.GridNodeConfiguration;
 import org.openqa.grid.internal.utils.configuration.StandaloneConfiguration;
 import org.openqa.grid.shared.CliUtils;
 import org.openqa.grid.web.Hub;
+import org.openqa.grid.web.servlet.DisplayHelpServlet;
 import org.openqa.selenium.internal.BuildInfo;
 import org.openqa.selenium.remote.server.SeleniumServer;
 import org.openqa.selenium.remote.server.log.LoggingOptions;
@@ -38,6 +40,8 @@ import org.openqa.selenium.remote.server.log.TerseFormatter;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Supplier;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.FileHandler;
@@ -45,15 +49,19 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.servlet.Servlet;
+
 public class GridLauncherV3 {
 
   private static final Logger log = Logger.getLogger(GridLauncherV3.class.getName());
   private static final String CORE_RUNNER_CLASS =
     "org.openqa.selenium.server.htmlrunner.HTMLLauncher";
+  private static final BuildInfo buildInfo = new BuildInfo();
 
   private static abstract class GridItemLauncher {
     protected StandaloneConfiguration configuration;
     protected boolean helpRequested;
+    protected boolean versionRequested;
     abstract void setConfiguration(String[] args);
     abstract void launch() throws Exception;
     void printUsage() {
@@ -69,6 +77,13 @@ public class GridLauncherV3 {
       return;
     }
 
+    if (launcher.versionRequested) {
+      System.out.println(String.format("Selenium server version: %s, revision: %s",
+                                       buildInfo.getReleaseLabel(),
+                                       buildInfo.getBuildRevision()));
+      return;
+    }
+
     if (launcher.helpRequested) {
       launcher.printUsage();
       return;
@@ -76,11 +91,10 @@ public class GridLauncherV3 {
 
     configureLogging(launcher.configuration);
 
-    BuildInfo buildInfo = new BuildInfo();
     log.info(String.format(
-      "Selenium build info: version: '%s', revision: '%s'",
-      buildInfo.getReleaseLabel(),
-      buildInfo.getBuildRevision()));
+        "Selenium build info: version: '%s', revision: '%s'",
+        buildInfo.getReleaseLabel(),
+        buildInfo.getBuildRevision()));
     try {
       launcher.launch();
     } catch (Exception e) {
@@ -99,7 +113,18 @@ public class GridLauncherV3 {
 
     for (int i = 0; i < args.length; i++) {
       if (args[i].equals("-htmlSuite")) {
-        GridItemLauncher launcher = LAUNCHERS.get("corerunner").get();
+        Supplier<GridItemLauncher> launcherSupplier = LAUNCHERS.get("corerunner");
+        if (launcherSupplier == null) {
+          System.err.println(Joiner.on("\n").join(
+            "Unable to find the HTML runner. This is normally because you have not downloaded",
+            "or made available the 'selenium-leg-rc' jar on the CLASSPATH. Your test will",
+            "not be run.",
+            "Download the Selenium HTML Runner from http://www.seleniumhq.org/download/ and",
+            "use that in place of the selenium-server-standalone.jar for the simplest way of",
+            "running your HTML suite."));
+          return null;
+        }
+        GridItemLauncher launcher = launcherSupplier.get();
         launcher.setConfiguration(args);
         return launcher;
       }
@@ -177,7 +202,7 @@ public class GridLauncherV3 {
       }
       try {
         Handler logFile = new FileHandler(new File(logFilename).getAbsolutePath(), true);
-        logFile.setFormatter(new TerseFormatter(true));
+        logFile.setFormatter(new TerseFormatter());
         logFile.setLevel(logLevel);
         Logger.getLogger("").addHandler(logFile);
       } catch (IOException e) {
@@ -187,7 +212,7 @@ public class GridLauncherV3 {
       for (Handler handler : Logger.getLogger("").getHandlers()) {
         if (handler instanceof ConsoleHandler) {
           handler.setLevel(logLevel);
-          handler.setFormatter(new TerseFormatter(configuration.logLongForm));
+          handler.setFormatter(new TerseFormatter());
         }
       }
     }
@@ -200,20 +225,31 @@ public class GridLauncherV3 {
           public void setConfiguration(String[] args) {
             configuration = new StandaloneConfiguration();
             new JCommander(configuration, args);
+            versionRequested = configuration.version;
             helpRequested = configuration.help;
           }
 
           public void launch() throws Exception {
             log.info("Launching a standalone Selenium Server");
             SeleniumServer server = new SeleniumServer(configuration);
+            Map<String, Class<? extends Servlet >> servlets = new HashMap<>();
+            servlets.put("/*", DisplayHelpServlet.class);
+            server.setExtraServlets(servlets);
             server.boot();
             log.info("Selenium Server is up and running");
           }
         })
         .put(GridRole.HUB.toString(), () -> new GridItemLauncher() {
           public void setConfiguration(String[] args) {
-            configuration = new GridHubConfiguration();
-            new JCommander(configuration, args);
+            GridHubConfiguration pending = new GridHubConfiguration();
+            new JCommander(pending, args);
+            configuration = pending;
+            //re-parse the args using any -hubConfig specified to init
+            if (pending.hubConfig != null) {
+              configuration = GridHubConfiguration.loadFromJSON(pending.hubConfig);
+              new JCommander(configuration, args); //args take precedence
+            }
+            versionRequested = configuration.version;
             helpRequested = configuration.help;
           }
 
@@ -227,8 +263,15 @@ public class GridLauncherV3 {
         })
         .put(GridRole.NODE.toString(), () -> new GridItemLauncher() {
           public void setConfiguration(String[] args) {
-            configuration = new GridNodeConfiguration();
-            new JCommander(configuration, args);
+            GridNodeConfiguration pending = new GridNodeConfiguration();
+            new JCommander(pending, args);
+            configuration = pending;
+            //re-parse the args using any -nodeConfig specified to init
+            if (pending.nodeConfigFile != null) {
+              configuration = GridNodeConfiguration.loadFromJSON(pending.nodeConfigFile);
+              new JCommander(configuration, args); //args take precedence
+            }
+            versionRequested = configuration.version;
             helpRequested = configuration.help;
             if (configuration.port == null) {
               configuration.port = 5555;
@@ -241,7 +284,7 @@ public class GridLauncherV3 {
               c =
               RegistrationRequest.build((GridNodeConfiguration) configuration);
             SelfRegisteringRemote remote = new SelfRegisteringRemote(c);
-            remote.setRemoteServer(new SeleniumServer(configuration));
+            remote.setRemoteServer(new SeleniumServer(c.getConfiguration()));
             remote.startRemoteServer();
             log.info("Selenium Grid node is up and ready to register to the hub");
             remote.startRegistrationProcess();
@@ -256,6 +299,7 @@ public class GridLauncherV3 {
         void setConfiguration(String[] args) {
           configuration = new CoreRunnerConfiguration();
           new JCommander(configuration, args);
+          versionRequested = configuration.version;
           helpRequested = configuration.help;
         }
 

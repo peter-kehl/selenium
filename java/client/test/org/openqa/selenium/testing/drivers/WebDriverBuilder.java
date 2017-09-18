@@ -17,7 +17,6 @@
 
 package org.openqa.selenium.testing.drivers;
 
-import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
 
 import org.openqa.selenium.Capabilities;
@@ -27,11 +26,11 @@ import org.openqa.selenium.remote.DesiredCapabilities;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 
 public class WebDriverBuilder implements Supplier<WebDriver> {
   private Capabilities desiredCapabilities;
-  private Capabilities requiredCapabilities;
   private final Browser browser;
 
   public WebDriverBuilder() {
@@ -39,7 +38,11 @@ public class WebDriverBuilder implements Supplier<WebDriver> {
   }
 
   public WebDriverBuilder(Browser browser) {
-    this.browser = browser;
+    if (browser == null) {
+      this.browser = Browser.chrome;
+    } else {
+      this.browser = browser;
+    }
   }
 
   public WebDriver get() {
@@ -47,8 +50,7 @@ public class WebDriverBuilder implements Supplier<WebDriver> {
     Capabilities desiredCaps = new DesiredCapabilities(standardCapabilities,
         desiredCapabilities);
 
-    List<Supplier<WebDriver>> suppliers = getSuppliers(desiredCaps,
-        requiredCapabilities);
+    List<Supplier<WebDriver>> suppliers = getSuppliers(desiredCaps);
 
     for (Supplier<WebDriver> supplier : suppliers) {
       WebDriver driver = supplier.get();
@@ -72,33 +74,26 @@ public class WebDriverBuilder implements Supplier<WebDriver> {
       setLogLevel.invoke(driver, level.getLevel());
     } catch (NoSuchMethodException e) {
       return;
-    } catch (InvocationTargetException e) {
-      throw new RuntimeException(e);
-    } catch (IllegalAccessException e) {
+    } catch (IllegalAccessException | InvocationTargetException e) {
       throw new RuntimeException(e);
     }
   }
 
-  private List<Supplier<WebDriver>> getSuppliers(Capabilities desiredCaps,
-      Capabilities requiredCaps) {
+  private List<Supplier<WebDriver>> getSuppliers(Capabilities desiredCaps) {
     List<Supplier<WebDriver>> suppliers = Lists.newArrayList();
-    suppliers.add(new ExternalDriverSupplier(desiredCaps, requiredCaps));
+    suppliers.add(new ExternalDriverSupplier(desiredCaps));
     suppliers.add(new SauceBackedDriverSupplier(desiredCaps));
-    suppliers.add(new RemoteSupplier(desiredCaps, requiredCaps));
+    suppliers.add(new GridSupplier(desiredCaps));
+    suppliers.add(new RemoteSupplier(desiredCaps));
     suppliers.add(new PhantomJSDriverSupplier(desiredCaps));
     suppliers.add(new TestInternetExplorerSupplier(desiredCaps));
-    suppliers.add(new ReflectionBackedDriverSupplier(desiredCaps, requiredCaps));
-    suppliers.add(new DefaultDriverSupplier(desiredCaps, requiredCaps));
+    suppliers.add(new ReflectionBackedDriverSupplier(desiredCaps));
+    suppliers.add(new DefaultDriverSupplier(desiredCaps));
     return suppliers;
   }
 
   public WebDriverBuilder setDesiredCapabilities(Capabilities caps) {
     this.desiredCapabilities = caps;
-    return this;
-  }
-
-  public WebDriverBuilder setRequiredCapabilities(Capabilities caps) {
-    this.requiredCapabilities = caps;
     return this;
   }
 
@@ -109,6 +104,7 @@ public class WebDriverBuilder implements Supplier<WebDriver> {
     WARNING("WARNING", Level.WARNING),
     ERROR("ERROR", Level.SEVERE);
 
+    @SuppressWarnings("unused")
     private final String value;
     private final Level level;
 

@@ -37,9 +37,10 @@ def updir():
     dirname = os.path.dirname
     return dirname(dirname(__file__))
 
+
 LOGGER = logging.getLogger(__name__)
 WEBDRIVER = os.environ.get("WEBDRIVER", updir())
-HTML_ROOT = os.path.join(WEBDRIVER, "../../../../../../common/src/web")
+HTML_ROOT = os.path.join(WEBDRIVER, "../../../../common/src/web")
 if not os.path.isdir(HTML_ROOT):
     message = ("Can't find 'common_web' directory, try setting WEBDRIVER"
                " environment variable WEBDRIVER:" + WEBDRIVER + "  HTML_ROOT:" + HTML_ROOT)
@@ -61,6 +62,7 @@ class HtmlOnlyHandler(BaseHTTPRequestHandler):
                 <body>Page number <span id=\"pageNumber\">{page_number}</span>
                 <p><a href=\"../xhtmlTest.html\" target=\"_top\">top</a>
                 </body></html>""".format(page_number=path[5:])
+                html = html.encode('utf-8')
             else:
                 with open(os.path.join(HTML_ROOT, path), 'r', encoding='latin-1') as f:
                     html = f.read().encode('utf-8')

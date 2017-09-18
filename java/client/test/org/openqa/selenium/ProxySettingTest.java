@@ -18,15 +18,10 @@
 package org.openqa.selenium;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.openqa.selenium.remote.CapabilityType.PROXY;
-import static org.openqa.selenium.testing.Driver.CHROME;
-import static org.openqa.selenium.testing.Driver.HTMLUNIT;
-import static org.openqa.selenium.testing.Driver.IE;
 import static org.openqa.selenium.testing.Driver.MARIONETTE;
 import static org.openqa.selenium.testing.Driver.PHANTOMJS;
-import static org.openqa.selenium.testing.Driver.REMOTE;
 import static org.openqa.selenium.testing.Driver.SAFARI;
 
 import com.google.common.base.Joiner;
@@ -43,6 +38,7 @@ import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.testing.Ignore;
 import org.openqa.selenium.testing.JUnit4TestBase;
 import org.openqa.selenium.testing.NeedsLocalEnvironment;
+import org.openqa.selenium.testing.NotYetImplemented;
 import org.openqa.selenium.testing.ProxyServer;
 import org.openqa.selenium.testing.drivers.WebDriverBuilder;
 import org.seleniumhq.jetty9.server.Handler;
@@ -59,7 +55,6 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-@Ignore(MARIONETTE)
 public class ProxySettingTest extends JUnit4TestBase {
 
   @Rule
@@ -82,10 +77,11 @@ public class ProxySettingTest extends JUnit4TestBase {
     }
   }
 
-  @Ignore(value = {PHANTOMJS, SAFARI},
-          reason = "PhantomJS - not tested, Safari - not implemented")
-  @NeedsLocalEnvironment
   @Test
+  @Ignore(SAFARI)
+  @Ignore(PHANTOMJS)
+  @NotYetImplemented(MARIONETTE)
+  @NeedsLocalEnvironment
   public void canConfigureManualHttpProxy() {
     Proxy proxyToUse = proxyServer.asProxy();
     DesiredCapabilities caps = new DesiredCapabilities();
@@ -94,14 +90,14 @@ public class ProxySettingTest extends JUnit4TestBase {
     WebDriver driver = new WebDriverBuilder().setDesiredCapabilities(caps).get();
     registerDriverTeardown(driver);
 
-    driver.get(pages.simpleTestPage);
+    driver.get(appServer.whereElseIs("simpleTest.html"));
     assertTrue("Proxy should have been called", proxyServer.hasBeenCalled("simpleTest.html"));
   }
 
-  @Ignore(value = {PHANTOMJS, SAFARI, HTMLUNIT},
-          reason = "PhantomJS - not tested, Safari - not implemented")
-  @NeedsLocalEnvironment
   @Test
+  @Ignore(SAFARI)
+  @Ignore(PHANTOMJS)
+  @NeedsLocalEnvironment
   public void canConfigureProxyThroughPACFile() {
     Server helloServer = createSimpleHttpServer(
         "<!DOCTYPE html><title>Hello</title><h3>Hello, world!</h3>");
@@ -119,15 +115,15 @@ public class ProxySettingTest extends JUnit4TestBase {
     WebDriver driver = new WebDriverBuilder().setDesiredCapabilities(caps).get();
     registerDriverTeardown(driver);
 
-    driver.get(pages.mouseOverPage);
+    driver.get(appServer.whereElseIs("mouseOver.html"));
     assertEquals("Should follow proxy to another server",
         "Hello, world!", driver.findElement(By.tagName("h3")).getText());
   }
 
-  @Ignore(value = {PHANTOMJS, SAFARI, HTMLUNIT},
-          reason = "PhantomJS - not tested, Safari - not implemented")
-  @NeedsLocalEnvironment
   @Test
+  @Ignore(SAFARI)
+  @Ignore(PHANTOMJS)
+  @NeedsLocalEnvironment
   public void canUsePACThatOnlyProxiesCertainHosts() throws Exception {
     Server helloServer = createSimpleHttpServer(
         "<!DOCTYPE html><title>Hello</title><h3>Hello, world!</h3>");
@@ -154,70 +150,22 @@ public class ProxySettingTest extends JUnit4TestBase {
     assertEquals("Should follow proxy to another server",
         "Goodbye, world!", driver.findElement(By.tagName("h3")).getText());
 
-    driver.get(pages.simpleTestPage);
+    driver.get(appServer.whereElseIs("simpleTest.html"));
     assertEquals("Proxy should have permitted direct access to host",
         "Heading", driver.findElement(By.tagName("h1")).getText());
   }
 
-  @Ignore({CHROME, IE, PHANTOMJS, REMOTE, SAFARI})
-  @NeedsLocalEnvironment
-  @Test
-  public void canConfigureProxyWithRequiredCapability() {
-    Proxy proxyToUse = proxyServer.asProxy();
-    DesiredCapabilities requiredCaps = new DesiredCapabilities();
-    requiredCaps.setCapability(PROXY, proxyToUse);
-
-    WebDriver driver = new WebDriverBuilder().setRequiredCapabilities(requiredCaps).get();
-    registerDriverTeardown(driver);
-
-    driver.get(pages.simpleTestPage);
-    assertTrue("Proxy should have been called", proxyServer.hasBeenCalled("simpleTest.html"));
-  }
-
-  @Ignore({CHROME, IE, PHANTOMJS, REMOTE, SAFARI})
-  @NeedsLocalEnvironment
-  @Test
-  public void requiredProxyCapabilityShouldHavePriority() {
-    ProxyServer desiredProxyServer = new ProxyServer();
-    registerProxyTeardown(desiredProxyServer);
-
-    Proxy desiredProxy = desiredProxyServer.asProxy();
-    Proxy requiredProxy = proxyServer.asProxy();
-
-    DesiredCapabilities desiredCaps = new DesiredCapabilities();
-    desiredCaps.setCapability(PROXY, desiredProxy);
-    DesiredCapabilities requiredCaps = new DesiredCapabilities();
-    requiredCaps.setCapability(PROXY, requiredProxy);
-
-    WebDriver driver = new WebDriverBuilder().setDesiredCapabilities(desiredCaps).
-        setRequiredCapabilities(requiredCaps).get();
-    registerDriverTeardown(driver);
-
-    driver.get(pages.simpleTestPage);
-
-    assertFalse("Desired proxy should not have been called.",
-                desiredProxyServer.hasBeenCalled("simpleTest.html"));
-    assertTrue("Required proxy should have been called.",
-               proxyServer.hasBeenCalled("simpleTest.html"));
-  }
-
   private void registerDriverTeardown(final WebDriver driver) {
-    tearDowns.add(new Callable<Object>() {
-      @Override
-      public Object call() {
-        driver.quit();
-        return null;
-      }
+    tearDowns.add(() -> {
+      driver.quit();
+      return null;
     });
   }
 
   private void registerProxyTeardown(final ProxyServer proxy) {
-    tearDowns.add(new Callable<Object>() {
-      @Override
-      public Object call() {
-        proxy.destroy();
-        return null;
-      }
+    tearDowns.add(() -> {
+      proxy.destroy();
+      return null;
     });
   }
 
@@ -258,16 +206,13 @@ public class ProxySettingTest extends JUnit4TestBase {
 
     server.setHandler(handler);
 
-    tearDowns.add(new Callable<Object>() {
-      @Override
-      public Object call() {
-        try {
-          server.stop();
-        } catch (Exception e) {
-          throw new RuntimeException(e);
-        }
-        return null;
+    tearDowns.add(() -> {
+      try {
+        server.stop();
+      } catch (Exception e) {
+        throw new RuntimeException(e);
       }
+      return null;
     });
 
     try {

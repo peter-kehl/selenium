@@ -1,6 +1,256 @@
+v3.5.3
+======
+
+Important note:
+
+* The new standalone server and Grid Node feature a "pass through"
+  mode. If you see changes to the Selenium WebDriver "logging" APIs or
+  automatic capture of screenshots on error (or if you want the old
+  behaviour back) you can do so by executing:
+
+  `java -jar selenium-server-standalone-3.5.3.jar -enablePassThrough false`
+
+* Allow user-provided DriverProviders to override default providers in
+  passthrough mode.
+* Fixes issue with W3C Actions not being properly filled when multiple
+  input sources are used.
+* Platform that represent platform families ("WINDOWS", "UNIX", "MAC",
+  and "IOS") return `null` from `Platform.getFamily`.
+* Handle null return values from chromedriver. Fixes #4555
+* Synchronized "platform" and "platformName" capability values. Fixes #4565
+* Add iOS `Platform`.
+* Fix wrapping of maps with null values. Fixes #3380
+* Grid: Add new w3c compatible `status` endpoints for Hub and nodes.
+* Grid: Properly parse responses from upstream nodes that are not
+  200. Fixes issue where `NoSuchElementException` was mistaken for a
+  `NoSuchSessionException`.
+* Grid: Handle re-encoding issue when transferring text from the
+  endpoint node to the local end.
+
+
+v3.5.2
+======
+
+Important note:
+
+* The new standalone server and Grid Node feature a "pass through"
+  mode. If you see changes to the Selenium WebDriver "logging" APIs or
+  automatic capture of screenshots on error (or if you want the old
+  behaviour back) you can do so by executing:
+
+  `java -jar selenium-server-standalone-3.5.2.jar -enablePassThrough false`
+
+* Avoid encoding numbers as floats rather then longs in JSON payloads.
+* New "pass through" mode supports file uploads again.
+* Added support for querying running sessions via the
+  "/wd/hub/sessions" endpoint
+* Fix a NullPointerException when deserializing exceptions from a
+  remote webdriver.
+* Handle the `macOS` as a valid platform name, as this is used by
+  safaridriver.
+
+
+v3.5.1
+======
+
+Important note:
+
+* The new standalone server and Grid Node feature a "pass through"
+  mode. If you see changes to the Selenium WebDriver "logging" APIs or
+  automatic capture of screenshots on error (or if you want the old
+  behaviour back) you can do so by executing:
+
+  `java -jar selenium-server-standalone-3.5.1.jar -enablePassThrough false`
+
+* Bump guava to version 23. This is work around an issue where maven
+  will select guava's android variant if using a ranged selector.
+
+
+v3.5.0
+======
+
+Note: Never pushed to maven due to problems resolving guava version.
+
+Important note:
+
+* The new standalone server and Grid Node feature a "pass through"
+  mode. If you see changes to the Selenium WebDriver "logging" APIs or
+  automatic capture of screenshots on error (or if you want the old
+  behaviour back) you can do so by executing:
+
+  `java -jar selenium-server-standalone-3.5.0.jar -enablePassThrough false`
+
+* Bump guava to version 22.
+* Add support for a new "pass through" mode. This allows a connection
+  from your test's RemoteWebDriver, through the Grid Hub, to a Grid
+  Node, and down to a DriverService and thence the browser to use the
+  same WebDriver protocol (the Json Wire Protocol or the W3C one) end
+  to end without translation. This mode can be disabled by starting
+  the standalone server or Grid node with `-enablePassThrough false`
+* Pin Guava to version 21+. This fixes problems with lambdas being
+  used as ExpectedConditions.
+* Start making *Option classes instances of Capabilities. This allows
+  the user to do:
+  `WebDriver driver = new RemoteWebDriver(new InternetExplorerOptions());`
+* Better handling of `getText` when confronted with a Shadow DOM
+* Better logging when using an Augmenter fails.
+* Make it easier to add new @FindBy annotations.
+* Attempt to kill processes before draining input, error, and output
+  streams. This should reduce apparent hanging when closing Firefox in
+  particular.
+* Grid will make use of W3C capabilities in prefernce to the JSON Wire
+  Protocol ones.
+* Fixing boolean command line arguments (#3877)
+
+v3.4.0
+======
+
+* Geckodriver 0.16 is strongly recommended
+* LiFT package is now available as a separate maven dependency.
+* Deprecated numerous constructors on RemoteWebDriver that are no
+  longer useful.
+* `requiredCapabilities` are now being removed. Use
+  `desiredCapabilities` instead.
+* Legacy Firefox support broken out into a `XpiDriverService`, but
+  still relies on the same `webdriver.xpi` as before.
+* Better support for W3C endpoints
+
+v3.3.1
+======
+
+* Better support for geckodriver v0.15.0. Notably, exceptions returned
+  from the remote end are now unwrapped properly.
+* Fix a bug with the status page of the standalone server.
+* Deprecated `Capabilities.isJavascriptEnabled`
+
+
+v3.3.0
+======
+
+* Support for geckodriver v0.15.0.
+* Deprecated seldom used FirefoxDriver constructors.
+* Added javadocs to show best way to create a new FirefoxDriver:
+  ```
+  DesiredCapabilities caps = new FirefoxOptions()
+       // For example purposes only
+      .setProfile(new FirefoxProfile())
+      .addTo(DesiredCapabilities.firefox());
+  WebDriver driver = new FirefoxDriver(caps);
+  ```
+* Stream New Session capabilities to disk before use to avoid eating
+  every byte of available memory.
+* Beginnings of local-end implementation of the w3c New Session
+  capabilities. There's still some work to do.
+
+v3.2.0
+======
+
+* Updated Guava to version 21 and started using Java 8 features. Users
+  are recommended to update too.
+* Fix a problem starting Firefox caused by missing libraries
+* Experimental support for the W3C Action endpoints
+* Remove deprecated `FluentWait.until(Predicate<?>)` method. This
+  should make lambdas work properly with Wait instances now.
+* Bump htmlunitdriver version to 2.24
+* [Grid] Allow for customisation of TestSlot (#3431)
+
+v3.1.0
+======
+
+* Update how the WebDriverException gathers system info. Resolves an
+  issue with slow-downs on OS X Sierra.
+* Update Wait and FluentWait for Java 8. Requires an update to the
+  latest guava version 21.0
+* Remove old marionette actions support.
+* Selenium server now understands a "-version" flag.
+* `WebElement.getText` now returns text from the Shadow DOM.
+* Implemented a more straightforward way to specify firefox binary in
+  GeckoDriverService builder.
+* Firefox can now pick a channel to start from on Windows via
+  `FirefoxBinary.Channel`
+* ChromeDriver now supports `NetworkConnection` interface.
+* htmlrunner bug fixes, in particular around `getValue`, and relative
+  paths to the suite file.
+* Fixes to make htmlrunner work.
+* Removed native events from FirefoxDriver.
+* Truncate the string representation of capabilities for display purposes.
+* Implemented session storage for w3c codec.
+* Change server dependency to htmlunit 2.23.2.
+* [Grid] DefaultCapabilityMatcher now considers "browserVersion".
+* [Grid] Fix node registration issue for Se2.x nodes with -servlets.
+* [Grid] Windows nodes are no longer displayed as "mixedOS".
+* [Grid] browser version capability specified on node command line no longer parsed to a Number
+
+v3.0.1
+======
+
+* Include ElementScrollBehavior enum in the release.
+* Add dependency on HTMLUnit to be included in the standalone server.
+* Grid new session requests pass original request through to the node
+  without any modifications.
+* Fix NPE in htmlrunner when port is not specified.
+* FirefoxDriver (legacy) fix to cleanup temp filesystem on quit (#2914 #2908).
+
+v3.0.0
+======
+
+IMPORTANT CHANGES
+
+* Firefox is only fully supported at version 47.0.1 or earlier. Support
+  for later versions of firefox is provided by geckodriver, which is
+  based on the evolving W3C WebDriver spec, and uses the wire protocol
+  in that spec, which is liable to change without notice.
+* You may wish to choose an ESR release such as 45.4.0esr or earlier.
+* Firefox 47.0.0 is not supported at all.
+
+Other major changes:
+
+* Stability fixes in Grid.
+* All Grid nodes can now offer help.
+* Updated to the latest version of HtmlUnitDriver.
+* Re-enabled log gathering for the standalone server.
+* Firefox profile is passed to both the legacy FirefoxDriver and
+  geckodriver.
+
+v3.0.0-beta4
+============
+
+IMPORTANT CHANGES
+
+* Firefox is only fully supported at version 47.0.1 or earlier. Support
+  for later versions of firefox is provided by geckodriver, which is
+  based on the evolving W3C WebDriver spec, and uses the wire protocol
+  in that spec, which is liable to change without notice.
+* You may wish to choose an ESR release such as 45.4.0esr or earlier.
+* Firefox 47.0.0 is not supported at all.
+
+Other major changes:
+
+* Remove OSS safaridriver in preference for Apple's own SafariDriver
+  that ships as part of Safari 10.
+* [Grid] -nodeConfig (json) files have a new flatter format (#2789)
+* [Grid] Fix #2721, -nodeConfig (json) settings were not always
+  applied
+* [Grid] Cleanup the api for RegistrationRequest -- will break
+  compilation for people moving from 2.x -- removed the ability to
+  change the GridNodeConfiguration reference via the
+  RegistrationRequest object and removed all other setters
+* Include the selenium version in exceptions (again).
+* [HTML suite runner] Better flag compatibility with the 2.x
+  selenium-server-standalone.
+* Fix #2727, combine -jettyThreads and -jettyMaxThreads (#2735)
+* [atoms] Cleaning up getAttribute dependencies, reducing size from
+  36K to 7K
+* Better support for the W3C webdriver wire codec.
+* Added ability to use FirefoxOptions when starting firefox.
+* Fixed a bug where the firefox profile was not being passed to the
+  geckodriver.
+* SafariDriver's Technology Preview can be used if installed.
+
 v3.0.0-beta3
 ============
 
+* The HTML table runner can be downloaded as selenium-html-runner.jar.
 * leg-rc jar is no longer bundled into the main selenium jar. Instead,
   it needs to be downloaded separately.
 * Removed deprecated SessionNotFoundException in favour of the
@@ -79,7 +329,7 @@ Firefox:
     * Weakening platform restriction to enable 64-bit support
     * Fixing closed window handling in FF45
     * Implementing a capability that disables overlapping checks - "overlappingCheckDisabled"
-    
+
 WebDriver:
     * Fix deselecting options in <select>, actually throw Exceptions documented
     * handle special case spellcheck attribute Fixes #1605
@@ -97,7 +347,7 @@ Firefox:
     * Bumping up the max version
     * Fixing scrolling to elements in overflow:hidden blocks. Fixes issue #1527
     * Fixing issue #1509
-    * Deleting deprecated constant 
+    * Deleting deprecated constant
     * Deleting unused method FirefoxBinary.createProfile
 
 WebDriver:
@@ -136,7 +386,7 @@ WebDriver:
     * Changes to simplify the execution of finding elements.
     * Fixing issue #1479. The only reasonable thing we can do for select elements is to disable clickability checking, see https://gist.github.com/p0deje/c549e93fa19bf7aaee49
 
-Grid: 
+Grid:
     * Found a better place to convert seconds to milliseconds
 
 v2.49.1
@@ -1412,11 +1662,11 @@ WebDriver:
     stable on Windows.
   * Added the enablePersistenHover capability to allow the user to specify
     whether to use the persistent hover thread in the IE driver. Defaults
-	to true for IE.
+    to true for IE.
   * Added support for native events for Firefox 15 and 16.
   * Removed deprecation from ChromeDriver constructors that take a Capabilities
     object. Also added a method to set experimental options in ChromeOptions
-	which may be used to set options that aren't exposed through the ChromeOptions
+    which may be used to set options that aren't exposed through the ChromeOptions
     API.
   * Fixed SafariDriver to allow calling .quit() consecutively without error.
   * Modified FirefoxDriver to use atoms to switch between frames.
@@ -2174,5 +2424,3 @@ Grid:
   * Track when a session has become orphaned.  I.e., when the client sends no
     commands after the initial session creation.  This almost always indicates
     the client is no longer connected and the session is unusable immediately.
-
-

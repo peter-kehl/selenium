@@ -21,12 +21,12 @@ import static org.junit.Assert.fail;
 import static org.openqa.selenium.testing.DevMode.isInDevMode;
 
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableMap;
 
 import org.openqa.selenium.BuckBuild;
 import org.openqa.selenium.Capabilities;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.firefox.FirefoxProfile;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.testing.DevMode;
@@ -38,6 +38,7 @@ import java.io.Reader;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
 
 public class SynthesizedFirefoxDriver extends FirefoxDriver {
 
@@ -45,31 +46,21 @@ public class SynthesizedFirefoxDriver extends FirefoxDriver {
   private static File cachedExt = null;
 
   public SynthesizedFirefoxDriver() {
-    this(new DesiredCapabilities(), new DesiredCapabilities());
-  }
-
-  public SynthesizedFirefoxDriver(FirefoxProfile profile) throws IOException {
-    this(new DesiredCapabilities(ImmutableMap.of(PROFILE, profile)), new DesiredCapabilities());
+    this(new FirefoxOptions());
   }
 
   public SynthesizedFirefoxDriver(Capabilities desiredCapabilities) {
-    this(desiredCapabilities, null);
+    super(tweakCapabilities(desiredCapabilities));
   }
 
-  public SynthesizedFirefoxDriver(Capabilities desiredCapabilities,
-                                  Capabilities requiredCapabilities) {
-    super(tweakCapabilities(desiredCapabilities), requiredCapabilities);
+  public SynthesizedFirefoxDriver(FirefoxOptions options) {
+    super(tweakCapabilities(options.toCapabilities()));
   }
 
   private static Capabilities tweakCapabilities(Capabilities desiredCaps) {
-    if (desiredCaps == null) {
-      return null;
-    }
-    DesiredCapabilities tweaked = new DesiredCapabilities(desiredCaps);
+    Objects.requireNonNull(desiredCaps, "Capabilities to tweak must not be null");
 
-    if (!Boolean.TRUE.equals(tweaked.getCapability(MARIONETTE))) {
-      tweaked.setCapability(MARIONETTE, false);
-    }
+    DesiredCapabilities tweaked = new DesiredCapabilities(desiredCaps);
 
     if (tweaked.getCapability(PROFILE) == null) {
       tweaked.setCapability(PROFILE, createTemporaryProfile());
@@ -93,31 +84,12 @@ public class SynthesizedFirefoxDriver extends FirefoxDriver {
 
   private static FirefoxProfile createTemporaryProfile() {
     if (!isInDevMode()) {
-      FirefoxProfile profile = new CustomProfile();
-
-      if (Boolean.getBoolean("webdriver.debug")) {
-        try {
-          Firebug.addTo(profile);
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
-      }
-
-      profile.setEnableNativeEvents(Boolean.getBoolean("selenium.browser.native_events"));
-
-      return profile;
+      return new CustomProfile();
     }
 
     try {
       FirefoxProfile profile = new CustomProfile();
-      if (Boolean.getBoolean("webdriver.debug")) {
-
-        Firebug.addTo(profile);
-      }
-
-      profile.setEnableNativeEvents(Boolean.getBoolean("selenium.browser.native_events"));
       profile.setPreference("webdriver.log.file", "/dev/stdout");
-
       return copyExtensionTo(profile);
     } catch (IOException e) {
       e.printStackTrace();

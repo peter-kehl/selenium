@@ -19,6 +19,7 @@ package org.openqa.grid.internal.utils.configuration.converters;
 
 import com.beust.jcommander.IStringConverter;
 
+import org.openqa.selenium.remote.CapabilityType;
 import org.openqa.selenium.remote.DesiredCapabilities;
 
 public class BrowserDesiredCapabilityConverter implements IStringConverter<DesiredCapabilities> {
@@ -27,10 +28,23 @@ public class BrowserDesiredCapabilityConverter implements IStringConverter<Desir
     DesiredCapabilities capabilities = new DesiredCapabilities();
     for (String cap : value.split(",")) {
       String[] pieces = cap.split("=");
-      if (pieces[0].equals("maxInstances")) {
-        capabilities.setCapability(pieces[0], Integer.parseInt(pieces[1], 10));
-      } else {
-        capabilities.setCapability(pieces[0], pieces[1]);
+      String capabilityName = pieces[0].trim();
+      String capabilityValue = pieces[1].trim();
+      if (capabilityName.equals(CapabilityType.VERSION)) {
+        // store version as a string, DesiredCapabilities assumes version is a string
+        capabilities.setCapability(capabilityName, capabilityValue);
+        continue;
+      }
+      try {
+        final Long x = Long.parseLong(capabilityValue);
+        capabilities.setCapability(capabilityName, x);
+      } catch (NumberFormatException e) {
+        // ignore the exception. process as boolean or string.
+        if (capabilityValue.equals("true") || capabilityValue.equals("false")) {
+          capabilities.setCapability(capabilityName, Boolean.parseBoolean(capabilityValue));
+        } else {
+          capabilities.setCapability(capabilityName, capabilityValue);
+        }
       }
     }
     return capabilities;

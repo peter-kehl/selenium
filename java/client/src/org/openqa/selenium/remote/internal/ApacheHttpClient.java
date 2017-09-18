@@ -21,12 +21,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.http.protocol.HttpCoreContext.HTTP_TARGET_HOST;
 
 import org.apache.http.Header;
-import org.apache.http.HeaderElement;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.NoHttpResponseException;
 import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
@@ -98,9 +96,7 @@ public class ApacheHttpClient implements org.openqa.selenium.remote.http.HttpCli
 
     internalResponse.setStatus(response.getStatusLine().getStatusCode());
     for (Header header : response.getAllHeaders()) {
-      for (HeaderElement headerElement : header.getElements()) {
-        internalResponse.addHeader(header.getName(), headerElement.getValue());
-      }
+      internalResponse.addHeader(header.getName(), header.getValue());
     }
 
     HttpEntity entity = response.getEntity();
@@ -191,11 +187,7 @@ public class ApacheHttpClient implements org.openqa.selenium.remote.http.HttpCli
       get.setHeader("Accept", "application/json; charset=utf-8");
       org.apache.http.HttpResponse newResponse = client.execute(targetHost, get, context);
       return followRedirects(client, context, newResponse, redirectCount + 1);
-    } catch (URISyntaxException e) {
-      throw new WebDriverException(e);
-    } catch (ClientProtocolException e) {
-      throw new WebDriverException(e);
-    } catch (IOException e) {
+    } catch (URISyntaxException | IOException e) {
       throw new WebDriverException(e);
     }
   }
@@ -252,10 +244,9 @@ public class ApacheHttpClient implements org.openqa.selenium.remote.http.HttpCli
       return defaultClientFactory;
     }
   }
-  
+
   @Override
-	public void close() throws IOException {
-	  client.getConnectionManager().closeIdleConnections(0, TimeUnit.SECONDS);		
-	}
-  
+  public void close() throws IOException {
+    client.getConnectionManager().closeIdleConnections(0, TimeUnit.SECONDS);
+  }
 }

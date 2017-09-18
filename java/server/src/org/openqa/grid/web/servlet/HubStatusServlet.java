@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 package org.openqa.grid.web.servlet;
 
+import com.google.common.io.CharStreams;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -27,12 +27,12 @@ import com.google.gson.JsonSyntaxException;
 import org.openqa.grid.common.exception.GridException;
 import org.openqa.grid.internal.Registry;
 import org.openqa.grid.internal.RemoteProxy;
-import org.openqa.grid.internal.TestSlot;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -55,9 +55,9 @@ import javax.servlet.http.HttpServletResponse;
  *      ]
  * }
  *
- * if no param is specified, all params known to the hub are returned.
+ * alternatively you can use a query string ?configuration=timeout,servlets
  *
- * {"configuration": []  }
+ * if no param is specified, all params known to the hub are returned.
  *
  */
 public class HubStatusServlet extends RegistryBasedServlet {
@@ -101,7 +101,10 @@ public class HubStatusServlet extends RegistryBasedServlet {
       if (request.getInputStream() != null) {
         JsonObject requestJSON = getRequestJSON(request);
         List<String> keysToReturn = null;
-        if (requestJSON != null && requestJSON.has("configuration")) {
+
+        if (request.getParameter("configuration") != null && !"".equals(request.getParameter("configuration"))) {
+          keysToReturn = Arrays.asList(request.getParameter("configuration").split(","));
+        } else if (requestJSON != null && requestJSON.has("configuration")) {
           keysToReturn = new Gson().fromJson(requestJSON.getAsJsonArray("configuration"), ArrayList.class);
         }
 
@@ -130,39 +133,29 @@ public class HubStatusServlet extends RegistryBasedServlet {
   }
 
   private JsonObject getSlotCounts() {
-    int freeSlots = 0;
     int totalSlots = 0;
+    int usedSlots = 0;
 
     for (RemoteProxy proxy : getRegistry().getAllProxies()) {
-      for (TestSlot slot : proxy.getTestSlots()) {
-        if (slot.getSession() == null) {
-          freeSlots += 1;
-        }
-
-        totalSlots += 1;
-      }
+      totalSlots += Math.min(proxy.getMaxNumberOfConcurrentTestSessions(), proxy.getTestSlots().size());
+      usedSlots += proxy.getTotalUsed();
     }
-
     JsonObject result = new JsonObject();
-
-    result.addProperty("free", freeSlots);
+    result.addProperty("free", totalSlots - usedSlots);
     result.addProperty("total", totalSlots);
-
     return result;
   }
 
   private JsonObject getRequestJSON(HttpServletRequest request) throws IOException {
-    JsonObject requestJSON = null;
-    BufferedReader rd = new BufferedReader(new InputStreamReader(request.getInputStream()));
-    StringBuilder s = new StringBuilder();
-    String line;
-    while ((line = rd.readLine()) != null) {
-      s.append(line);
-    }
-    rd.close();
-    String json = s.toString();
-    if (!"".equals(json)) {
-      requestJSON = new JsonParser().parse(json).getAsJsonObject();
+    JsonObject requestJSON = new JsonObject();
+
+    try (BufferedReader rd = new BufferedReader(new InputStreamReader(request.getInputStream()))) {
+      StringBuilder s = new StringBuilder();
+      CharStreams.copy(rd, s);
+      String json = s.toString();
+      if (!"".equals(json)) {
+        requestJSON = new JsonParser().parse(json).getAsJsonObject();
+      }
     }
     return requestJSON;
   }

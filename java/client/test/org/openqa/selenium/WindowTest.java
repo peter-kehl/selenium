@@ -35,11 +35,7 @@ import org.openqa.selenium.testing.SwitchToTopAfterTest;
 import org.openqa.selenium.testing.TestUtilities;
 import org.openqa.selenium.testing.drivers.SauceDriver;
 
-import java.util.logging.Logger;
-
 public class WindowTest extends JUnit4TestBase {
-
-  private static Logger log = Logger.getLogger(WindowTest.class.getName());
 
   @Test
   public void testGetsTheSizeOfTheCurrentWindow() {
@@ -102,14 +98,18 @@ public class WindowTest extends JUnit4TestBase {
     assumeFalse(TestUtilities.getEffectivePlatform(driver).is(ANDROID));
     Point position = driver.manage().window().getPosition();
 
-    assertThat(position.x, is(greaterThanOrEqualTo(0)));
-    assertThat(position.y, is(greaterThanOrEqualTo(0)));
+    // If the Chrome under test is launched by default as maximized, the window
+    // coordinates may have small negative values (note that elements in the
+    // viewport are, of course, still clickable).
+    assertThat(position.x, is(greaterThanOrEqualTo(-10)));
+    assertThat(position.y, is(greaterThanOrEqualTo(-10)));
   }
 
   @Test
-  @Ignore(value = {SAFARI, PHANTOMJS},
-      reason = "Safari: getPosition after setPosition doesn't match up exactly, " +
+  @Ignore(value = SAFARI,
+      reason = "getPosition after setPosition doesn't match up exactly, " +
           "as expected - probably due to nuances in Mac OSX window manager.")
+  @Ignore(PHANTOMJS)
   public void testSetsThePositionOfTheCurrentWindow() throws InterruptedException {
     // Browser window cannot be resized or moved on ANDROID (and most mobile platforms
     // though others aren't defined in org.openqa.selenium.Platform).
@@ -136,8 +136,9 @@ public class WindowTest extends JUnit4TestBase {
     }
   }
 
-  @Ignore(value = {PHANTOMJS}, reason = "Not yet implemented.")
   @Test
+  @Ignore(PHANTOMJS)
+  @Ignore(travis = true)
   public void testCanMaximizeTheWindow() throws InterruptedException {
     // Browser window cannot be resized or moved on ANDROID (and most mobile platforms
     // though others aren't defined in org.openqa.selenium.Platform).
@@ -149,8 +150,9 @@ public class WindowTest extends JUnit4TestBase {
   }
 
   @SwitchToTopAfterTest
-  @Ignore(value = {PHANTOMJS}, reason = "Not yet implemented.")
   @Test
+  @Ignore(PHANTOMJS)
+  @Ignore(travis = true)
   public void testCanMaximizeTheWindowFromFrame() throws InterruptedException {
     // Browser window cannot be resized or moved on ANDROID (and most mobile platforms
     // though others aren't defined in org.openqa.selenium.Platform).
@@ -164,9 +166,10 @@ public class WindowTest extends JUnit4TestBase {
     maximize();
   }
 
-  @Ignore(value = {PHANTOMJS}, reason = "Not yet implemented.")
   @SwitchToTopAfterTest
   @Test
+  @Ignore(PHANTOMJS)
+  @Ignore(travis = true)
   public void testCanMaximizeTheWindowFromIframe() throws InterruptedException {
     // Browser window cannot be resized or moved on ANDROID (and most mobile platforms
     // though others aren't defined in org.openqa.selenium.Platform).
@@ -205,69 +208,26 @@ public class WindowTest extends JUnit4TestBase {
   }
 
   private ExpectedCondition<Boolean> windowSizeEqual(final Dimension size) {
-    return new ExpectedCondition<Boolean>() {
-      public Boolean apply(WebDriver driver) {
-        Dimension newSize = driver.manage().window().getSize();
-
-        return newSize.height == size.height &&
-               newSize.width == size.width;
-      }
+    return driver -> {
+      Dimension newSize = driver.manage().window().getSize();
+      return newSize.height == size.height && newSize.width == size.width;
     };
   }
 
   private ExpectedCondition<Boolean> windowWidthToBeGreaterThan(final Dimension size) {
-    return new ExpectedCondition<Boolean>() {
-      public Boolean apply(WebDriver driver) {
-        Dimension newSize = driver.manage().window().getSize();
-        log.info("waiting for width, Current dimensions are " + newSize);
-        if(newSize.width != size.width) {
-          return true;
-        }
-
-        return null;
-      }
-    };
+    return driver -> driver.manage().window().getSize().width != size.width;
   }
 
   private ExpectedCondition<Boolean> windowHeightToBeGreaterThan(final Dimension size) {
-    return new ExpectedCondition<Boolean>() {
-      @Override
-      public Boolean apply(WebDriver driver) {
-        Dimension newSize = driver.manage().window().getSize();
-        log.info("waiting for height, Current dimensions are " + newSize);
-        if(newSize.height != size.height) {
-          return true;
-        }
-
-        return null;
-      }
-    };
+    return driver -> driver.manage().window().getSize().height != size.height;
   }
-  private ExpectedCondition<Boolean> xEqual(final Point targetPosition) {
-    return new ExpectedCondition<Boolean>() {
-      public Boolean apply(WebDriver driver) {
-        Point newPosition = driver.manage().window().getPosition();
-        if(newPosition.x == targetPosition.x) {
-          return true;
-        }
 
-        return null;
-      }
-    };
+  private ExpectedCondition<Boolean> xEqual(final Point targetPosition) {
+    return driver -> driver.manage().window().getPosition().x == targetPosition.x;
   }
 
   private ExpectedCondition<Boolean> yEqual(final Point targetPosition) {
-    return new ExpectedCondition<Boolean>() {
-      @Override
-      public Boolean apply(WebDriver driver) {
-        Point newPosition = driver.manage().window().getPosition();
-        if(newPosition.y == targetPosition.y) {
-          return true;
-        }
-
-        return null;
-      }
-    };
+    return driver -> driver.manage().window().getPosition().y == targetPosition.y;
   }
 
   private void assumeNotLinuxAtSauce() {
