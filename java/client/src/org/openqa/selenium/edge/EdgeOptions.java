@@ -19,12 +19,15 @@ package org.openqa.selenium.edge;
 
 import static org.openqa.selenium.remote.CapabilityType.PAGE_LOAD_STRATEGY;
 
+import com.google.common.collect.ImmutableMap;
+
+import org.openqa.selenium.Capabilities;
 import org.openqa.selenium.MutableCapabilities;
 import org.openqa.selenium.Platform;
 import org.openqa.selenium.remote.BrowserType;
 import org.openqa.selenium.remote.CapabilityType;
-import org.openqa.selenium.remote.DesiredCapabilities;
 
+import java.util.Map;
 import java.util.Objects;
 
 
@@ -47,13 +50,19 @@ import java.util.Objects;
 public class EdgeOptions extends MutableCapabilities {
 
   /**
-   * Key used to store a set of EdgeOptions in a {@link DesiredCapabilities} object.
+   * Key used to store a set of EdgeOptions in a {@link Capabilities} object.
    */
   public static final String CAPABILITY = "edgeOptions";
 
   public EdgeOptions() {
     setCapability(CapabilityType.BROWSER_NAME, BrowserType.EDGE);
     setCapability(CapabilityType.PLATFORM, Platform.WINDOWS);
+  }
+
+  @Override
+  public EdgeOptions merge(Capabilities extraCapabilities) {
+    super.merge(extraCapabilities);
+    return this;
   }
 
   /**
@@ -76,5 +85,10 @@ public class EdgeOptions extends MutableCapabilities {
    */
   MutableCapabilities toCapabilities() {
     return this;
+  }
+
+  @Override
+  public Map<String, ?> asMap() {
+    return ImmutableMap.of(CAPABILITY, super.asMap());
   }
 }

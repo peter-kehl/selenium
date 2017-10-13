@@ -18,22 +18,28 @@
 package org.openqa.selenium;
 
 
+import org.openqa.selenium.logging.LogLevelMapping;
+import org.openqa.selenium.logging.LoggingPreferences;
+
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 public class MutableCapabilities implements Capabilities, Serializable {
 
   private static final long serialVersionUID = -112816287184979465L;
+
   private static final Set<String> OPTION_KEYS;
   static {
     HashSet<String> keys = new HashSet<>();
     keys.add("chromeOptions");
     keys.add("edgeOptions");
     keys.add("goog:chromeOptions");
+    keys.add("moz:firefoxOptions");
     keys.add("operaOptions");
     keys.add("se:ieOptions");
     keys.add("safari.options");
@@ -54,7 +60,7 @@ public class MutableCapabilities implements Capabilities, Serializable {
   public MutableCapabilities(Map<String, ?> capabilities) {
     capabilities.forEach((key, value) -> {
       if (value != null) {
-        caps.put(key, value);
+        setCapability(key, value);
       }
     });
   }
@@ -85,7 +91,15 @@ public class MutableCapabilities implements Capabilities, Serializable {
 
   @Override
   public int hashCode() {
-    return caps.hashCode();
+    return Objects.hash(amendHashCode(), caps);
+  }
+
+  /**
+   * Subclasses can use this to add information that isn't always in the capabilities map.
+   * @return
+   */
+  protected int amendHashCode() {
+    return 0;
   }
 
   /**
@@ -129,7 +143,37 @@ public class MutableCapabilities implements Capabilities, Serializable {
       return;
     }
 
-    caps.put(key, value);
+    if ("loggingPrefs".equals(key) && value instanceof Map) {
+      LoggingPreferences prefs = new LoggingPreferences();
+      @SuppressWarnings("unchecked") Map<String, String> prefsMap = (Map<String, String>) value;
+
+      for (String logType : prefsMap.keySet()) {
+        prefs.enable(logType, LogLevelMapping.toLevel(prefsMap.get(logType)));
+      }
+      caps.put(key, prefs);
+      return;
+    }
+
+    if ("platform".equals(key) && value instanceof String) {
+      try {
+        caps.put(key, Platform.fromString((String) value));
+      } catch (WebDriverException e) {
+        caps.put(key, value);
+      }
+      return;
+    }
+
+    if ("unexpectedAlertBehaviour".equals(key)) {
+      caps.put("unexpectedAlertBehaviour", value);
+      caps.put("unhandledPromptBehavior", value);
+      return;
+    }
+
+    if (value == null) {
+      caps.remove(key);
+    } else {
+      caps.put(key, value);
+    }
   }
 
   @Override

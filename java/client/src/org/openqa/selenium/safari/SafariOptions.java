@@ -17,12 +17,13 @@
 
 package org.openqa.selenium.safari;
 
+import com.google.common.collect.ImmutableMap;
+
 import org.openqa.selenium.Capabilities;
 import org.openqa.selenium.MutableCapabilities;
 import org.openqa.selenium.Platform;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.remote.CapabilityType;
-import org.openqa.selenium.remote.DesiredCapabilities;
 
 import java.io.IOException;
 import java.util.Map;
@@ -48,7 +49,7 @@ import java.util.TreeMap;
 public class SafariOptions extends MutableCapabilities {
 
   /**
-   * Key used to store SafariOptions in a {@link DesiredCapabilities} object.
+   * Key used to store SafariOptions in a {@link Capabilities} object.
    */
   public static final String CAPABILITY = "safari.options";
 
@@ -63,12 +64,18 @@ public class SafariOptions extends MutableCapabilities {
   private Map<String, Object> options = new TreeMap<>();
 
   public SafariOptions() {
-    setCapability(Option.PORT, 0);
-    setCapability(Option.CLEAN_SESSION, false);
-    setCapability(Option.TECHNOLOGY_PREVIEW, false);
+    options.put(Option.PORT, 0);
+    options.put(Option.TECHNOLOGY_PREVIEW, false);
 
+    setCapability(Option.CLEAN_SESSION, false);
     setCapability(CapabilityType.BROWSER_NAME, "safari");
     setCapability(CapabilityType.PLATFORM, Platform.MAC);
+  }
+
+  @Override
+  public SafariOptions merge(Capabilities extraCapabilities) {
+    super.merge(extraCapabilities);
+    return this;
   }
 
   /**
@@ -103,7 +110,10 @@ public class SafariOptions extends MutableCapabilities {
    *
    * @param port The port the {@link SafariDriverService} should be started on,
    *    or 0 if the server should select a free port.
+   * @deprecated Create a {@link SafariDriverService} to specify driver service port and pass
+   * the service instance to a {@link SafariDriver} constructor.
    */
+  @Deprecated
   SafariOptions setPort(int port) {
     options.put(Option.PORT, port);
     return this;
@@ -119,9 +129,18 @@ public class SafariOptions extends MutableCapabilities {
    *
    * @param useCleanSession If true, the SafariDriver will erase all existing session data.
    */
-  public SafariOptions setUseCleanSession(boolean useCleanSession) {
+  public SafariOptions useCleanSession(boolean useCleanSession) {
     options.put(Option.CLEAN_SESSION, useCleanSession);
+    setCapability(Option.CLEAN_SESSION, useCleanSession);
     return this;
+  }
+
+  /**
+   * @deprecated Use {@link #useCleanSession(boolean)} instead
+   */
+  @Deprecated
+  public SafariOptions setUseCleanSession(boolean useCleanSession) {
+    return useCleanSession(useCleanSession);
   }
 
   /**
@@ -130,7 +149,10 @@ public class SafariOptions extends MutableCapabilities {
    *
    * @param useTechnologyPreview If true, the SafariDriver will use the Safari Technology Preview,
    *     otherwise will use the release version of Safari.
+   * @deprecated Create a {@link SafariDriverService} to specify what Safari flavour should be used
+   * and pass the service instance to a {@link SafariDriver} constructor.
    */
+  @Deprecated
   public SafariOptions setUseTechnologyPreview(boolean useTechnologyPreview) {
     options.put(Option.TECHNOLOGY_PREVIEW, useTechnologyPreview);
     return this;
@@ -142,7 +164,9 @@ public class SafariOptions extends MutableCapabilities {
    * @return The port the {@link SafariDriverService} should be started on.
    *    If 0, the server should select a free port.
    * @see #setPort(int)
+   * @deprecated Getters are not needed in browser Options classes.
    */
+  @Deprecated
   public int getPort() {
     return (int) options.getOrDefault(Option.PORT, 0);
   }
@@ -150,11 +174,17 @@ public class SafariOptions extends MutableCapabilities {
   /**
    * @return Whether the SafariDriver should erase all session data before launching Safari.
    * @see #setUseCleanSession(boolean)
+   * @deprecated Getters are not needed in browser Options classes.
    */
+  @Deprecated
   public boolean getUseCleanSession() {
     return (boolean) options.getOrDefault(Option.CLEAN_SESSION, false);
   }
 
+  /**
+   * @deprecated Getters are not needed in browser Options classes.
+   */
+  @Deprecated
   public boolean getUseTechnologyPreview() {
     return (boolean) options.getOrDefault(Option.TECHNOLOGY_PREVIEW, false);
   }
@@ -176,7 +206,7 @@ public class SafariOptions extends MutableCapabilities {
 
     Boolean useCleanSession = (Boolean) options.get(Option.CLEAN_SESSION);
     if (useCleanSession != null) {
-      safariOptions.setUseCleanSession(useCleanSession);
+      safariOptions.useCleanSession(useCleanSession);
     }
 
     Boolean useTechnologyPreview = (Boolean) options.get(Option.TECHNOLOGY_PREVIEW);
@@ -198,5 +228,10 @@ public class SafariOptions extends MutableCapabilities {
   @Deprecated
   MutableCapabilities toCapabilities() {
     return this;
+  }
+
+  @Override
+  public Map<String, ?> asMap() {
+    return ImmutableMap.of(CAPABILITY, super.asMap());
   }
 }

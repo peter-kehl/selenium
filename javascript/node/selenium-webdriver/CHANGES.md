@@ -1,9 +1,114 @@
-## v.next
+## v4.0.0-dev
+
+### Notice
+
+*  The minimum supported version of Node is now 8.6.0
+
+### Changes to Supported Browsers
+
+Native support has been removed for Opera and PhantomJS as the WebDriver
+implementations for these browsers are no longer under active development.
+
+For Opera, users should be able to simply rely on testing Chrome as the Opera
+browser is based on Chromium (and the operadriver was a thin wrapper around
+chromedriver). For PhantomJS, users should use Chrome or Firefox in headless
+mode.
+
+### API Changes
+
+*  Added `webdriver.manage().window().minimize()`
+*  Added `webdriver.manage().window().fullscreen()`
+*  The core WebDriver API no longer uses promise manager
+   -  Removed `index.Builder#setControlFlow()`
+   -  The following thenable types no longer have a `cancel()` method:
+     -  The dynamically generated thenable WebDrivers created by `index.Builder`
+     -  `lib/webdriver.AlertPromise`
+     -  `lib/webdriver.WebElementPromise`
+*  The `testing/index` module no longer wraps the promise manager
+*  Removed `remote/index.DriverService.prototype.stop()` (use `#kill()` instead)
+*  Removed the `firefox.Binary` class. Custom binaries can still be selected
+   using `firefox.Options#setBinary()`. Likewise, custom binary arguments can be
+   specified with `firefox.Options#addArguments()`.
+*  Removed the `lib/actions` module
+*  Removed the `phantomjs` module
+*  Removed the 'opera' module
+*  Removed the `WebDriver.attachToSession()` factory method. Users can just use
+   use the `WebDriver` constructor directly instead.
+*  Removed the `WebDriver.prototype.touchActions()` method. Action sequences
+   are now defined from a single origin: `WebDriver.prototype.actions()`.
+*  Removed the promise manager from `lib/promise`, which includes the removal
+   of the following exported names (replacements, if any, in parentheses):
+   -  CancellableThenable
+   -  CancellationError
+   -  ControlFlow
+   -  Deferred
+   -  LONG_STACK_TRACES
+   -  MultipleUnhandledRejectionError
+   -  Promise (use native Promises)
+   -  Resolver
+   -  Scheduler
+   -  Thenable
+   -  USE_PROMISE_MANAGER
+   -  all (use Promise.all)
+   -  asap (use Promise.resolve)
+   -  captureStackTrace (use Error.captureStackTrace)
+   -  consume (use async functions)
+   -  controlFlow
+   -  createPromise (use new Promise)
+   -  defer
+   -  fulfilled (use Promise.resolve)
+   -  isGenerator
+   -  rejected (use Promise.reject)
+   -  setDefaultFlow
+   -  when (use Promise.resolve)
+*  Renamed `WebDriver#schedule()` to `WebDriver#execute()`
+
+### Changes for W3C WebDriver Spec Compliance
+
+*  Revamped the actions API to conform with the WebDriver Spec:
+   <https://www.w3.org/TR/webdriver/#actions>. For details, refer to the JS doc
+   on the `lib/webdriver.ActionSequence` class. For simplicity, support for the
+   legacy actions API has been removed.
+*  Added supported for minimizing windows and toggling fullscreen.
+
+
+## v3.6.0
+
+### Bug Fixes
+
+* The Capabilities factory methods should only specify the name of the browser.
+* Protect against the remote end sometimes not returning a list to findElements
+  commands.
+* Properly reset state in `remote.DriverService#kill()`
+* The firefox module will no longer apply the preferences required by the legacy
+  FirefoxDriver. These preferences were only required when using the legacy
+  driver, support for which was dropped in v3.5.0.
+
+### API Changes
+
+* Added new methods to `selenium-webdriver/firefox.Options`:
+  - addArguments()
+  - headless()
+  - windowSize()
+* Deprecated `selenium-webdriver/firefox/binary.Binary`
+* Removed `selenium-webdriver/firefox.Options#useGeckoDriver()`
+* Removed the unused `selenium-webdriver/firefox/profile.decode()`
+* Removed methods from `selenium-webdriver/firefox/profile.Profile` that had
+  no effect since support for the legacy FirefoxDriver was dropped in 3.5.0:
+  - setNativeEventsEnabled
+  - nativeEventsEnabled
+  - getPort
+  - setPort
+* Removed `selenium-webdriver/firefox.ServiceBuilder#setFirefoxBinary()`; custom
+  binaries should be configured through the `firefox.Options` class.
+* Removed `selenium-webdriver/firefox.Capability`. These hold overs from the
+  legacy FirefoxDriver are no longer supported.
 
 ### Changes for W3C WebDriver Spec Compliance
 
 * Deprecated `error.ElementNotVisibleError` in favor of the more generic
   `error.ElementNotInteractableError`.
+* Support the `httpOnly` option when adding a cookie.
 
 
 ## v3.5.0

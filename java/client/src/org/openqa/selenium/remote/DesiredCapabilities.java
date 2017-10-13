@@ -111,32 +111,6 @@ public class DesiredCapabilities extends MutableCapabilities {
     return this;
   }
 
-  public void setCapability(String key, Object value) {
-    if (LOGGING_PREFS.equals(key) && value instanceof Map) {
-      LoggingPreferences prefs = new LoggingPreferences();
-      Map<String, String> prefsMap = (Map<String, String>) value;
-
-      for (String logType : prefsMap.keySet()) {
-        prefs.enable(logType, LogLevelMapping.toLevel(prefsMap.get(logType)));
-      }
-      super.setCapability(LOGGING_PREFS, prefs);
-
-    } else if (PLATFORM.equals(key) && value instanceof String) {
-      try {
-        super.setCapability(key, Platform.fromString((String) value));
-      } catch (WebDriverException e) {
-        super.setCapability(key, value);
-      }
-
-    } else if (UNEXPECTED_ALERT_BEHAVIOUR.equals(key)) {
-      super.setCapability(UNEXPECTED_ALERT_BEHAVIOUR, value);
-      super.setCapability(UNHANDLED_PROMPT_BEHAVIOUR, value);
-
-    } else {
-      super.setCapability(key, value);
-    }
-  }
-
   public static DesiredCapabilities android() {
     return new DesiredCapabilities(BrowserType.ANDROID, "", Platform.ANDROID);
   }
@@ -194,6 +168,10 @@ public class DesiredCapabilities extends MutableCapabilities {
     return new DesiredCapabilities(BrowserType.SAFARI, "", Platform.MAC);
   }
 
+  /**
+   * @deprecated PhantomJS is no longer actively developed, and support will eventually be dropped.
+   */
+  @Deprecated
   public static DesiredCapabilities phantomjs() {
     return new DesiredCapabilities(BrowserType.PHANTOMJS, "", Platform.ANY);
   }

@@ -1,3 +1,46 @@
+v3.7.0
+======
+
+* Simulate some w3c Actions commands using the old APIs. This allows a
+  local end that only speaks the JSON Wire Protocol to use
+  "Actions.moveTo" when communicating with a W3C compliant remote
+  end. Apparently, people need this.
+* More fluent APIs in `*Options` classes.
+* Moving some safari config options from `SafariOptions` to the
+  `SafariDriverService`.
+* In Grid and Remote, force the use of the legacy Firefox driver when
+  marionette flag is set.
+* The protocol handshake now uses a `CapabilityTransform` to convert
+  an JSON Wire Protocol capability to one or more w3c
+  capabilities. These are located using the standard Java
+  ServiceLoader framework.
+* The protocol handshake also uses a `CapabilitiesFilter` that
+  extracts keys and values specific to a browser from a JSON Wire
+  Protocol capabilities map. Again, these are loaded using the
+  `ServiceLoader` framework.
+* `requiredCapabilities` are now no longer sent across the wire.
+* Fixed handling of unrecognized platform names returned by remote
+  end. #4781
+* Better error messages from the htmlrunner.
+* Migrated from using `DesiredCapabilities` to either
+  `MutableCapabilities` or (preferably) `ImmutableCapabilities`.
+* Move building of locators to How enum
+
+
+v3.6.0
+======
+
+* Remove direct dependency on HTMLUnit and PhantomJS from Maven
+  artifacts.
+* All `*Option` classes now extend `MutableCapbilities`
+  `new RemoteWebDriver(new ChromeOptions());`
+* Deprecating constructors that don't take strongly-typed `*Options`. 
+* Improved exceptions when a `Wait` times out when using a
+  `WrappedWebDriver`.
+* Added `Interactive` interface to EventFiringWebDriver. Fixes #4589
+* Add options to start Firefox and Chrome in headless modes.
+
+
 v3.5.3
 ======
 

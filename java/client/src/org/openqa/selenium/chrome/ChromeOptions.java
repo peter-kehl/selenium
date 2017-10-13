@@ -19,6 +19,7 @@ package org.openqa.selenium.chrome;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.openqa.selenium.remote.CapabilityType.ACCEPT_INSECURE_CERTS;
 import static org.openqa.selenium.remote.CapabilityType.PAGE_LOAD_STRATEGY;
 import static org.openqa.selenium.remote.CapabilityType.UNEXPECTED_ALERT_BEHAVIOUR;
 import static org.openqa.selenium.remote.CapabilityType.UNHANDLED_PROMPT_BEHAVIOUR;
@@ -28,11 +29,13 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.io.Files;
 
+import org.openqa.selenium.Capabilities;
 import org.openqa.selenium.MutableCapabilities;
 import org.openqa.selenium.PageLoadStrategy;
 import org.openqa.selenium.SessionNotCreatedException;
 import org.openqa.selenium.UnexpectedAlertBehaviour;
-import org.openqa.selenium.remote.DesiredCapabilities;
+import org.openqa.selenium.remote.BrowserType;
+import org.openqa.selenium.remote.CapabilityType;
 
 import java.io.File;
 import java.io.IOException;
@@ -40,6 +43,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
 
 /**
@@ -65,7 +69,7 @@ import java.util.TreeMap;
 public class ChromeOptions extends MutableCapabilities {
 
   /**
-   * Key used to store a set of ChromeOptions in a {@link DesiredCapabilities}
+   * Key used to store a set of ChromeOptions in a {@link Capabilities}
    * object.
    */
   public static final String CAPABILITY = "goog:chromeOptions";
@@ -75,6 +79,16 @@ public class ChromeOptions extends MutableCapabilities {
   private List<File> extensionFiles = Lists.newArrayList();
   private List<String> extensions = Lists.newArrayList();
   private Map<String, Object> experimentalOptions = Maps.newHashMap();
+
+  public ChromeOptions() {
+    setCapability(CapabilityType.BROWSER_NAME, BrowserType.CHROME);
+  }
+
+  @Override
+  public ChromeOptions merge(Capabilities extraCapabilities) {
+    super.merge(extraCapabilities);
+    return this;
+  }
 
   /**
    * Sets the path to the Chrome executable. This path should exist on the
@@ -214,6 +228,11 @@ public class ChromeOptions extends MutableCapabilities {
     return this;
   }
 
+  public ChromeOptions setAcceptInsecureCerts(boolean acceptInsecureCerts) {
+    setCapability(ACCEPT_INSECURE_CERTS, acceptInsecureCerts);
+    return this;
+  }
+
   public ChromeOptions setHeadless(boolean headless) {
     args.remove("--headless");
     if (headless) {
@@ -234,6 +253,16 @@ public class ChromeOptions extends MutableCapabilities {
   @Deprecated
   MutableCapabilities toCapabilities() {
     return this;
+  }
+
+  @Override
+  protected int amendHashCode() {
+    return Objects.hash(
+        args,
+        binary,
+        experimentalOptions,
+        extensionFiles,
+        extensions);
   }
 
   @Override

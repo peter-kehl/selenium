@@ -45,11 +45,11 @@ end
 verbose($DEBUG)
 
 def release_version
-  "3.5"
+  "3.7"
 end
 
 def version
-  "#{release_version}.3"
+  "#{release_version}.0"
 end
 
 ide_version = "2.8.0"
@@ -208,6 +208,7 @@ task :test_remote_server => [
    '//java/server/test/org/openqa/selenium/remote/server/log:test:run',
 ]
 task :test_remote => [
+  '//java/client/test/org/openqa/selenium/json:small-tests:run',
   '//java/client/test/org/openqa/selenium/remote:common-tests:run',
   '//java/client/test/org/openqa/selenium/remote:client-tests:run',
   '//java/client/test/org/openqa/selenium/remote:remote-driver-tests:run',
@@ -256,6 +257,7 @@ task :test_java => [
 
 task :test_java_small_tests => [
   "//java/client/test/org/openqa/selenium:small-tests:run",
+  "//java/client/test/org/openqa/selenium/json:small-tests:run",
   "//java/client/test/org/openqa/selenium/support:small-tests:run",
   "//java/client/test/org/openqa/selenium/remote:common-tests:run",
   "//java/client/test/org/openqa/selenium/remote:client-tests:run",
@@ -270,7 +272,6 @@ task :test_rb_local => [
   "//rb:firefox-test",
   "//rb:phantomjs-test",
   ("//rb:ff-esr-test" if ENV['FF_ESR_BINARY']),
-  ("//rb:ff-nightly-test" if ENV['FF_NIGHTLY_BINARY']),
   ("//rb:safari-preview-test" if mac?),
   ("//rb:safari-test" if mac?),
   ("//rb:ie-test" if windows?),
@@ -282,7 +283,6 @@ task :test_rb_remote => [
   "//rb:remote-firefox-test",
   "//rb:remote-phantomjs-test",
   ("//rb:remote-ff-esr-test" if ENV['FF_ESR_BINARY']),
-  ("//rb:remote-ff-nightly-test" if ENV['FF_NIGHTLY_BINARY']),
   ("//rb:remote-safari-preview-test" if mac?),
   ("//rb:remote-safari-test" if mac?),
   ("//rb:remote-ie-test" if windows?),
@@ -444,18 +444,15 @@ end
 
 
 task :'prep-release-zip' => [
-  '//java/client/src/org/openqa/selenium:client-combined:zip',
-  '//java/server/src/org/openqa/grid/selenium:selenium:zip',
+  '//java/server/src/org/openqa/grid/selenium:selenium',
+  '//java/client/src/org/openqa/selenium:client-combined-zip',
+  '//java/server/src/org/openqa/grid/selenium:selenium-zip',
   '//java/server/src/org/openqa/selenium/server/htmlrunner:selenium-runner'] do
 
   mkdir_p "build/dist"
   cp Rake::Task['//java/server/src/org/openqa/grid/selenium:selenium'].out, "build/dist/selenium-server-standalone-#{version}.jar"
-  cp Rake::Task['//java/server/src/org/openqa/grid/selenium:selenium:zip'].out, "build/dist/selenium-server-#{version}.zip"
-  `jar uf build/dist/selenium-server-#{version}.zip NOTICE LICENSE`
-  `cd java && jar uf ../build/dist/selenium-server-#{version}.zip CHANGELOG`
-  cp Rake::Task['//java/client/src/org/openqa/selenium:client-combined:zip'].out, "build/dist/selenium-java-#{version}.zip"
-  `jar uf build/dist/selenium-java-#{version}.zip NOTICE LICENSE`
-  `cd java && jar uf ../build/dist/selenium-server-#{version}.zip CHANGELOG`
+  cp Rake::Task['//java/server/src/org/openqa/grid/selenium:selenium-zip'].out, "build/dist/selenium-server-#{version}.zip"
+  cp Rake::Task['//java/client/src/org/openqa/selenium:client-combined-zip'].out, "build/dist/selenium-java-#{version}.zip"
   cp Rake::Task['//java/server/src/org/openqa/selenium/server/htmlrunner:selenium-runner'].out, "build/dist/selenium-html-runner-#{version}.jar"
 end
 
@@ -522,14 +519,14 @@ end
 namespace :node do
   task :atoms => [
     "//javascript/atoms/fragments:is-displayed",
-    "//javascript/webdriver/atoms:getAttribute",
+    "//javascript/webdriver/atoms:get-attribute",
   ] do
     baseDir = "javascript/node/selenium-webdriver/lib/atoms"
     mkdir_p baseDir
 
     [
       Rake::Task["//javascript/atoms/fragments:is-displayed"].out,
-      Rake::Task["//javascript/webdriver/atoms:getAttribute"].out,
+      Rake::Task["//javascript/webdriver/atoms:get-attribute"].out,
     ].each do |atom|
       name = File.basename(atom)
 
@@ -550,7 +547,6 @@ namespace :node do
         " --output=build/javascript/node/selenium-webdriver" <<
         " --resource=LICENSE:/LICENSE" <<
         " --resource=NOTICE:/NOTICE" <<
-        " --resource=javascript/firefox-driver/webdriver.json:firefox/webdriver.json" <<
         " --resource=common/src/web/:test/data/" <<
         " --exclude_resource=common/src/web/Bin" <<
         " --exclude_resource=.gitignore" <<

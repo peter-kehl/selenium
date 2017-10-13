@@ -21,7 +21,7 @@ var path = require('path');
 
 var firefox = require('../../firefox'),
     io = require('../../io'),
-    test = require('../../lib/test'),
+    {Pages, suite, ignore} = require('../../lib/test'),
     assert = require('../../testing/assert'),
     Context = require('../../firefox').Context,
     error = require('../..').error;
@@ -37,7 +37,7 @@ var WEBEXTENSION_EXTENSION = path.join(__dirname,
   '../../lib/test/data/firefox/webextension.xpi');
 
 
-test.suite(function(env) {
+suite(function(env) {
   describe('firefox', function() {
     describe('Options', function() {
       let driver;
@@ -53,16 +53,27 @@ test.suite(function(env) {
       });
 
       /**
+       * @param {...string} extensions the extensions to install.
+       * @return {!firefox.Profile} a new profile.
+       */
+      function profileWithExtensions(...extensions) {
+        let profile = new firefox.Profile();
+        profile.setPreference('xpinstall.signatures.required', false);
+        extensions.forEach(ext => profile.addExtension(ext));
+        return profile;
+      }
+
+      /**
        * Runs a test that requires Firefox Developer Edition. The test will be
        * skipped if dev cannot be found on the current system.
        */
       function runWithFirefoxDev(options, testFn) {
-        return firefox.Channel.AURORA.locate().then(exe => {
+        return firefox.Channel.AURORA.locate().then(async (exe) => {
           options.setBinary(exe);
-          driver = env.builder()
+          driver = await env.builder()
               .setFirefoxOptions(options)
               .build();
-          return driver.call(testFn);
+          return testFn();
         }, err => {
           console.warn(
               'Skipping test: could not find Firefox Dev Edition: ' + err);
@@ -70,122 +81,92 @@ test.suite(function(env) {
       }
 
       describe('can start Firefox with custom preferences', function() {
-        function runTest(opt_dir) {
-          return consume(function*() {
-            let profile = new firefox.Profile(opt_dir);
-            profile.setPreference('general.useragent.override', 'foo;bar');
+        async function runTest(opt_dir) {
+          let profile = new firefox.Profile(opt_dir);
+          profile.setPreference('general.useragent.override', 'foo;bar');
 
-            let options = new firefox.Options().setProfile(profile);
+          let options = new firefox.Options().setProfile(profile);
 
-            driver = env.builder().
-                setFirefoxOptions(options).
-                build();
+          driver = env.builder().
+              setFirefoxOptions(options).
+              build();
 
-            yield driver.get('data:text/html,<html><div>content</div></html>');
+          await driver.get('data:text/html,<html><div>content</div></html>');
 
-            var userAgent = yield driver.executeScript(
-                'return window.navigator.userAgent');
-            assert(userAgent).equalTo('foo;bar');
-          });
+          var userAgent = await driver.executeScript(
+              'return window.navigator.userAgent');
+          assert(userAgent).equalTo('foo;bar');
         }
 
-        test.it('profile created from scratch', function() {
+        it('profile created from scratch', function() {
           return runTest();
         });
 
-        test.it('profile created from template', function() {
+        it('profile created from template', function() {
           return io.tmpDir().then(runTest);
         });
       });
 
-      test.it('can start Firefox with a jetpack extension', function() {
-        let profile = new firefox.Profile();
-        profile.addExtension(JETPACK_EXTENSION);
-
+      it('can start Firefox with a jetpack extension', function() {
+        let profile = profileWithExtensions(JETPACK_EXTENSION);
         let options = new firefox.Options().setProfile(profile);
 
-        return runWithFirefoxDev(options, function*() {
-          yield loadJetpackPage(driver,
+        return runWithFirefoxDev(options, async function() {
+          await loadJetpackPage(driver,
               'data:text/html;charset=UTF-8,<html><div>content</div></html>');
 
           let text =
-              yield driver.findElement({id: 'jetpack-sample-banner'}).getText();
+              await driver.findElement({id: 'jetpack-sample-banner'}).getText();
           assert(text).equalTo('Hello, world!');
         });
       });
 
-      test.it('can start Firefox with a normal extension', function() {
-        let profile = new firefox.Profile();
-        profile.addExtension(NORMAL_EXTENSION);
-
+      it('can start Firefox with a normal extension', function() {
+        let profile = profileWithExtensions(NORMAL_EXTENSION);
         let options = new firefox.Options().setProfile(profile);
 
-        return runWithFirefoxDev(options, function*() {
-          yield driver.get('data:text/html,<html><div>content</div></html>');
+        return runWithFirefoxDev(options, async function() {
+          await driver.get('data:text/html,<html><div>content</div></html>');
 
           let footer =
-              yield driver.findElement({id: 'sample-extension-footer'});
-          let text = yield footer.getText();
+              await driver.findElement({id: 'sample-extension-footer'});
+          let text = await footer.getText();
           assert(text).equalTo('Goodbye');
         });
       });
 
-      test.it('can start Firefox with a webextension extension', function() {
-        let profile = new firefox.Profile();
-        profile.addExtension(WEBEXTENSION_EXTENSION);
-
+      it('can start Firefox with a webextension extension', function() {
+        let profile = profileWithExtensions(WEBEXTENSION_EXTENSION);
         let options = new firefox.Options().setProfile(profile);
 
-        return runWithFirefoxDev(options, function*() {
-          yield driver.get(test.Pages.echoPage);
+        return runWithFirefoxDev(options, async function() {
+          await driver.get(Pages.echoPage);
 
           let footer =
-            yield driver.findElement({id: 'webextensions-selenium-example'});
-          let text = yield footer.getText();
+              await driver.findElement({id: 'webextensions-selenium-example'});
+          let text = await footer.getText();
           assert(text).equalTo('Content injected by webextensions-selenium-example');
         });
       });
 
-      test.it('can start Firefox with multiple extensions', function() {
-        let profile = new firefox.Profile();
-        profile.addExtension(JETPACK_EXTENSION);
-        profile.addExtension(NORMAL_EXTENSION);
-
+      it('can start Firefox with multiple extensions', function() {
+        let profile =
+            profileWithExtensions(JETPACK_EXTENSION, NORMAL_EXTENSION);
         let options = new firefox.Options().setProfile(profile);
 
-        return runWithFirefoxDev(options, function*() {
-          yield loadJetpackPage(driver,
+        return runWithFirefoxDev(options, async function() {
+          await loadJetpackPage(driver,
               'data:text/html;charset=UTF-8,<html><div>content</div></html>');
 
           let banner =
-              yield driver.findElement({id: 'jetpack-sample-banner'}).getText();
+              await driver.findElement({id: 'jetpack-sample-banner'}).getText();
           assert(banner).equalTo('Hello, world!');
 
           let footer =
-              yield driver.findElement({id: 'sample-extension-footer'})
+              await driver.findElement({id: 'sample-extension-footer'})
                   .getText();
           assert(footer).equalTo('Goodbye');
         });
-      });
-
-      test.it('can be used alongside preset capabilities', function*() {
-        let binary = yield firefox.Channel.AURORA.locate();
-
-        let profile = new firefox.Profile();
-        profile.addExtension(JETPACK_EXTENSION);
-        profile.setPreference('general.useragent.override', 'foo;bar');
-
-        driver = yield env.builder()
-            .withCapabilities({'moz:firefoxOptions': {binary}})
-            .setFirefoxOptions(new firefox.Options().setProfile(profile))
-            .build();
-
-        yield loadJetpackPage(driver,
-            'data:text/html;charset=UTF-8,<html><div>content</div></html>');
-
-        let text =
-            yield driver.findElement({id: 'jetpack-sample-banner'}).getText();
-        assert(text).equalTo('Hello, world!');
       });
 
       function loadJetpackPage(driver, url) {
@@ -200,57 +181,34 @@ test.suite(function(env) {
       }
     });
 
-    describe('binary management', function() {
-      var driver1, driver2;
-
-      test.ignore(env.isRemote).
-      it('can start multiple sessions with single binary instance', function*() {
-        var options = new firefox.Options().setBinary(new firefox.Binary);
-        env.builder().setFirefoxOptions(options);
-        driver1 = yield env.builder().build();
-        driver2 = yield env.builder().build();
-        // Ok if this doesn't fail.
-      });
-
-      test.afterEach(function*() {
-        if (driver1) {
-          yield driver1.quit();
-        }
-
-        if (driver2) {
-          yield driver2.quit();
-        }
-      });
-    });
-
     describe('context switching', function() {
       var driver;
 
-      test.beforeEach(function*() {
-        driver = yield env.builder().build();
+      beforeEach(async function() {
+        driver = await env.builder().build();
       });
 
-      test.afterEach(function() {
+      afterEach(function() {
         if (driver) {
           return driver.quit();
         }
       });
 
-      test.it('can get context', function() {
+      it('can get context', function() {
         return assert(driver.getContext()).equalTo(Context.CONTENT);
       });
 
-      test.it('can set context', function*() {
-        yield driver.setContext(Context.CHROME);
-        let ctxt = yield driver.getContext();
+      it('can set context', async function() {
+        await driver.setContext(Context.CHROME);
+        let ctxt = await driver.getContext();
         assert(ctxt).equalTo(Context.CHROME);
 
-        yield driver.setContext(Context.CONTENT);
-        ctxt = yield driver.getContext();
+        await driver.setContext(Context.CONTENT);
+        ctxt = await driver.getContext();
         assert(ctxt).equalTo(Context.CONTENT);
       });
 
-      test.it('throws on unknown context', function() {
+      it('throws on unknown context', function() {
         return driver.setContext("foo").then(assert.fail, function(e) {
           assert(e).instanceOf(error.InvalidArgumentError);
         });

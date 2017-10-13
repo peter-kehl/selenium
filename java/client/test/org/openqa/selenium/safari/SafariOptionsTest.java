@@ -18,19 +18,24 @@
 package org.openqa.selenium.safari;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
+import com.google.common.collect.ImmutableMap;
 
 import org.junit.Test;
-import org.openqa.selenium.remote.DesiredCapabilities;
+import org.openqa.selenium.Capabilities;
+import org.openqa.selenium.ImmutableCapabilities;
+
+import java.util.Map;
 
 public class SafariOptionsTest {
 
   @Test
   public void commonUsagePatternWorks() {
-    SafariOptions options = new SafariOptions().setPort(99);
-    DesiredCapabilities caps = new DesiredCapabilities();
-    caps.setCapability(SafariOptions.CAPABILITY, options);
-
-    assertEquals(options.asMap(), caps.asMap());
+    SafariOptions options = new SafariOptions().useCleanSession(true);
+    Map<String, ?> caps = options.asMap();
+    assertEquals(((Map<String, ?>) caps.get(SafariOptions.CAPABILITY)).get("cleanSession"), true);
   }
 
 }

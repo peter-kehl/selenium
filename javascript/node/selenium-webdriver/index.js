@@ -27,7 +27,6 @@ const edge = require('./edge');
 const firefox = require('./firefox');
 const _http = require('./http');
 const ie = require('./ie');
-const actions = require('./lib/actions');
 const by = require('./lib/by');
 const capabilities = require('./lib/capabilities');
 const command = require('./lib/command');
@@ -39,8 +38,6 @@ const promise = require('./lib/promise');
 const session = require('./lib/session');
 const until = require('./lib/until');
 const webdriver = require('./lib/webdriver');
-const opera = require('./opera');
-const phantomjs = require('./phantomjs');
 const remote = require('./remote');
 const safari = require('./safari');
 
@@ -107,7 +104,7 @@ function ensureFileDetectorsAreEnabled(ctor) {
  * every issued command will fail.
  *
  * @extends {webdriver.IWebDriver}
- * @extends {promise.CancellableThenable<!webdriver.IWebDriver>}
+ * @extends {IThenable<!webdriver.IWebDriver>}
  * @interface
  */
 class ThenableWebDriver {
@@ -147,24 +144,13 @@ function createDriver(ctor, ...args) {
           return new ctor(session, ...rest);
         });
 
-        /**
-         * @param {(string|Error)=} opt_reason
-         * @override
-         */
-        this.cancel = function(opt_reason) {
-          if (promise.CancellableThenable.isImplementation(pd)) {
-            /** @type {!promise.CancellableThenable} */(pd).cancel(opt_reason);
-          }
-        };
-
         /** @override */
         this.then = pd.then.bind(pd);
 
         /** @override */
-        this.catch = pd.then.bind(pd);
+        this.catch = pd.catch.bind(pd);
       }
     };
-    promise.CancellableThenable.addImplementation(thenableWebDriverProxy);
     THENABLE_DRIVERS.set(ctor, thenableWebDriverProxy);
   }
   return thenableWebDriverProxy.createSession(...args);
@@ -215,9 +201,6 @@ class Builder {
     /** @private @const */
     this.log_ = logging.getLogger('webdriver.Builder');
 
-    /** @private {promise.ControlFlow} */
-    this.flow_ = null;
-
     /** @private {string} */
     this.url_ = '';
 
@@ -232,9 +215,6 @@ class Builder {
 
     /** @private {firefox.Options} */
     this.firefoxOptions_ = null;
-
-    /** @private {opera.Options} */
-    this.operaOptions_ = null;
 
     /** @private {ie.Options} */
     this.ieOptions_ = null;
@@ -468,20 +448,6 @@ class Builder {
   }
 
   /**
-   * Sets Opera specific {@linkplain opera.Options options} for drivers created
-   * by this builder. Any logging or proxy settings defined on the given options
-   * will take precedence over those set through {@link #setLoggingPrefs} and
-   * {@link #setProxy}, respectively.
-   *
-   * @param {!opera.Options} options The OperaDriver options to use.
-   * @return {!Builder} A self reference.
-   */
-  setOperaOptions(options) {
-    this.operaOptions_ = options;
-    return this;
-  }
-
-  /**
    * Set Internet Explorer specific {@linkplain ie.Options options} for drivers
    * created by this builder. Any proxy settings defined on the given options
    * will take precedence over those set through {@link #setProxy}.
@@ -527,19 +493,6 @@ class Builder {
    */
   getSafariOptions() {
     return this.safariOptions_;
-  }
-
-  /**
-   * Sets the control flow that created drivers should execute actions in. If
-   * the flow is never set, or is set to {@code null}, it will use the active
-   * flow at the time {@link #build()} is called.
-   * @param {promise.ControlFlow} flow The control flow to use, or
-   *     {@code null} to
-   * @return {!Builder} A self reference.
-   */
-  setControlFlow(flow) {
-    this.flow_ = flow;
-    return this;
   }
 
   /**
@@ -591,9 +544,6 @@ class Builder {
     } else if (browser === Browser.INTERNET_EXPLORER && this.ieOptions_) {
       capabilities.merge(this.ieOptions_.toCapabilities());
 
-    } else if (browser === Browser.OPERA && this.operaOptions_) {
-      capabilities.merge(this.operaOptions_.toCapabilities());
-
     } else if (browser === Browser.SAFARI && this.safariOptions_) {
       capabilities.merge(this.safariOptions_.toCapabilities());
 
@@ -623,41 +573,32 @@ class Builder {
 
       if (browser === Browser.CHROME) {
         const driver = ensureFileDetectorsAreEnabled(chrome.Driver);
-        return createDriver(
-            driver, capabilities, executor, this.flow_);
+        return createDriver(driver, capabilities, executor);
       }
 
       if (browser === Browser.FIREFOX) {
         const driver = ensureFileDetectorsAreEnabled(firefox.Driver);
-        return createDriver(
-            driver, capabilities, executor, this.flow_);
+        return createDriver(driver, capabilities, executor);
       }
-      return createDriver(
-          WebDriver, executor, capabilities, this.flow_);
+      return createDriver(WebDriver, executor, capabilities);
     }
 
     // Check for a native browser.
     switch (browser) {
       case Browser.CHROME:
-        return createDriver(chrome.Driver, capabilities, null, this.flow_);
+        return createDriver(chrome.Driver, capabilities, null);
 
       case Browser.FIREFOX:
-        return createDriver(firefox.Driver, capabilities, null, this.flow_);
+        return createDriver(firefox.Driver, capabilities, null);
 
       case Browser.INTERNET_EXPLORER:
-        return createDriver(ie.Driver, capabilities, this.flow_);
+        return createDriver(ie.Driver, capabilities);
 
       case Browser.EDGE:
-        return createDriver(edge.Driver, capabilities, null, this.flow_);
-
-      case Browser.OPERA:
-        return createDriver(opera.Driver, capabilities, null, this.flow_);
-
-      case Browser.PHANTOM_JS:
-        return createDriver(phantomjs.Driver, capabilities, this.flow_);
+        return createDriver(edge.Driver, capabilities, null);
 
       case Browser.SAFARI:
-        return createDriver(safari.Driver, capabilities, this.flow_);
+        return createDriver(safari.Driver, capabilities);
 
       default:
         throw new Error('Do not know how to build driver: ' + browser
@@ -670,7 +611,7 @@ class Builder {
 // PUBLIC API
 
 
-exports.ActionSequence = actions.ActionSequence;
+exports.ActionSequence = webdriver.ActionSequence;
 exports.Browser = capabilities.Browser;
 exports.Builder = Builder;
 exports.Button = input.Button;
@@ -683,7 +624,6 @@ exports.FileDetector = input.FileDetector;
 exports.Key = input.Key;
 exports.Session = session.Session;
 exports.ThenableWebDriver = ThenableWebDriver;
-exports.TouchSequence = actions.TouchSequence;
 exports.WebDriver = webdriver.WebDriver;
 exports.WebElement = webdriver.WebElement;
 exports.WebElementCondition = webdriver.WebElementCondition;

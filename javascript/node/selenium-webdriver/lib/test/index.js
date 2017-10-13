@@ -22,7 +22,6 @@ var assert = require('assert');
 var build = require('./build'),
     isDevMode = require('../devmode'),
     webdriver = require('../../'),
-    flow = webdriver.promise.controlFlow(),
     firefox = require('../../firefox'),
     logging = require('../../lib/logging'),
     safari = require('../../safari'),
@@ -109,8 +108,6 @@ var browsersToTest = (function() {
       console.log('Running tests using loopback address')
     }
   }
-  console.log(
-      'Promise manager is enabled? ' + webdriver.promise.USE_PROMISE_MANAGER);
 
   return browsers;
 })();
@@ -205,7 +202,7 @@ function suite(fn, opt_options) {
       if (isDevMode && !noBuild) {
         return build.of(
             '//javascript/atoms/fragments:is-displayed',
-            '//javascript/webdriver/atoms:getAttribute')
+            '//javascript/webdriver/atoms:get-attribute')
             .onlyOnce().go();
       }
     });

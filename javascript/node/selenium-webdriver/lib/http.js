@@ -35,7 +35,7 @@ const WebElement = require('./webdriver').WebElement;
 const {getAttribute, isDisplayed} = /** @suppress {undefinedVars|uselessCode} */(function() {
   try {
     return {
-      getAttribute: require('./atoms/getAttribute.js'),
+      getAttribute: require('./atoms/get-attribute.js'),
       isDisplayed: require('./atoms/is-displayed.js')
     };
   } catch (ex) {
@@ -179,7 +179,6 @@ const COMMAND_MAP = new Map([
     [cmd.Name.GET_SERVER_STATUS, get('/status')],
     [cmd.Name.NEW_SESSION, post('/session')],
     [cmd.Name.GET_SESSIONS, get('/sessions')],
-    [cmd.Name.DESCRIBE_SESSION, get('/session/:sessionId')],
     [cmd.Name.QUIT, del('/session/:sessionId')],
     [cmd.Name.CLOSE, del('/session/:sessionId/window')],
     [cmd.Name.GET_CURRENT_WINDOW_HANDLE, get('/session/:sessionId/window_handle')],
@@ -227,21 +226,6 @@ const COMMAND_MAP = new Map([
     [cmd.Name.SCREENSHOT, get('/session/:sessionId/screenshot')],
     [cmd.Name.GET_TIMEOUT, get('/session/:sessionId/timeouts')],
     [cmd.Name.SET_TIMEOUT, post('/session/:sessionId/timeouts')],
-    [cmd.Name.MOVE_TO, post('/session/:sessionId/moveto')],
-    [cmd.Name.CLICK, post('/session/:sessionId/click')],
-    [cmd.Name.DOUBLE_CLICK, post('/session/:sessionId/doubleclick')],
-    [cmd.Name.MOUSE_DOWN, post('/session/:sessionId/buttondown')],
-    [cmd.Name.MOUSE_UP, post('/session/:sessionId/buttonup')],
-    [cmd.Name.MOVE_TO, post('/session/:sessionId/moveto')],
-    [cmd.Name.SEND_KEYS_TO_ACTIVE_ELEMENT, post('/session/:sessionId/keys')],
-    [cmd.Name.TOUCH_SINGLE_TAP, post('/session/:sessionId/touch/click')],
-    [cmd.Name.TOUCH_DOUBLE_TAP, post('/session/:sessionId/touch/doubleclick')],
-    [cmd.Name.TOUCH_DOWN, post('/session/:sessionId/touch/down')],
-    [cmd.Name.TOUCH_UP, post('/session/:sessionId/touch/up')],
-    [cmd.Name.TOUCH_MOVE, post('/session/:sessionId/touch/move')],
-    [cmd.Name.TOUCH_SCROLL, post('/session/:sessionId/touch/scroll')],
-    [cmd.Name.TOUCH_LONG_PRESS, post('/session/:sessionId/touch/longclick')],
-    [cmd.Name.TOUCH_FLICK, post('/session/:sessionId/touch/flick')],
     [cmd.Name.ACCEPT_ALERT, post('/session/:sessionId/accept_alert')],
     [cmd.Name.DISMISS_ALERT, post('/session/:sessionId/dismiss_alert')],
     [cmd.Name.GET_ALERT_TEXT, get('/session/:sessionId/alert_text')],
@@ -256,6 +240,8 @@ const COMMAND_MAP = new Map([
 
 /** @const {!Map<string, (CommandSpec|CommandTransformer)>} */
 const W3C_COMMAND_MAP = new Map([
+  [cmd.Name.ACTIONS, post('/session/:sessionId/actions')],
+  [cmd.Name.CLEAR_ACTIONS, del('/session/:sessionId/actions')],
   [cmd.Name.GET_ACTIVE_ELEMENT, get('/session/:sessionId/element/active')],
   [cmd.Name.GET_ALERT_TEXT, get('/session/:sessionId/alert/text')],
   [cmd.Name.SET_ALERT_TEXT, post('/session/:sessionId/alert/text')],
@@ -272,6 +258,8 @@ const W3C_COMMAND_MAP = new Map([
   [cmd.Name.EXECUTE_SCRIPT, post('/session/:sessionId/execute/sync')],
   [cmd.Name.EXECUTE_ASYNC_SCRIPT, post('/session/:sessionId/execute/async')],
   [cmd.Name.MAXIMIZE_WINDOW, post('/session/:sessionId/window/maximize')],
+  [cmd.Name.MINIMIZE_WINDOW, post('/session/:sessionId/window/minimize')],
+  [cmd.Name.FULLSCREEN_WINDOW, post('/session/:sessionId/window/fullscreen')],
   [cmd.Name.GET_WINDOW_POSITION, get('/session/:sessionId/window/position')],
   [cmd.Name.SET_WINDOW_POSITION, post('/session/:sessionId/window/position')],
   [cmd.Name.GET_WINDOW_SIZE, get('/session/:sessionId/window/size')],
@@ -440,16 +428,14 @@ class Executor {
         let httpResponse = /** @type {!Response} */(response);
         let {isW3C, value} = parseHttpResponse(command, httpResponse);
 
-        if (command.getName() === cmd.Name.NEW_SESSION
-            || command.getName() === cmd.Name.DESCRIBE_SESSION) {
+        if (command.getName() === cmd.Name.NEW_SESSION) {
           if (!value || !value.sessionId) {
             throw new error.WebDriverError(
                 `Unable to parse new session response: ${response.body}`);
           }
 
           // The remote end is a W3C compliant server if there is no `status`
-          // field in the response. This is not applicable for the DESCRIBE_SESSION
-          // command, which is not defined in the W3C spec.
+          // field in the response.
           if (command.getName() === cmd.Name.NEW_SESSION) {
             this.w3c = this.w3c || isW3C;
           }
@@ -510,8 +496,7 @@ function parseHttpResponse(command, httpResponse) {
 
       // Adjust legacy new session responses to look like W3C to simplify
       // later processing.
-      if (command.getName() === cmd.Name.NEW_SESSION
-          || command.getName() == cmd.Name.DESCRIBE_SESSION) {
+      if (command.getName() === cmd.Name.NEW_SESSION) {
         value = parsed;
       }
 

@@ -33,7 +33,9 @@ import org.openqa.selenium.Capabilities;
 import org.openqa.selenium.Cookie;
 import org.openqa.selenium.Dimension;
 import org.openqa.selenium.HasCapabilities;
+import org.openqa.selenium.ImmutableCapabilities;
 import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.MutableCapabilities;
 import org.openqa.selenium.NoSuchFrameException;
 import org.openqa.selenium.NoSuchWindowException;
 import org.openqa.selenium.OutputType;
@@ -107,27 +109,27 @@ public class RemoteWebDriver implements WebDriver, JavascriptExecutor,
 
   // For cglib
   protected RemoteWebDriver() {
-    init(new DesiredCapabilities());
+    init(new ImmutableCapabilities());
   }
 
-  public RemoteWebDriver(Capabilities desiredCapabilities) {
-    this(new HttpCommandExecutor(null), desiredCapabilities);
+  public RemoteWebDriver(Capabilities capabilities) {
+    this(new HttpCommandExecutor(null), capabilities);
   }
 
-  public RemoteWebDriver(CommandExecutor executor, Capabilities desiredCapabilities) {
+  public RemoteWebDriver(CommandExecutor executor, Capabilities capabilities) {
     this.executor = executor;
 
-    init(desiredCapabilities);
+    init(capabilities);
 
     if (executor instanceof NeedsLocalLogs) {
       ((NeedsLocalLogs)executor).setLocalLogs(localLogs);
     }
 
     try {
-      startClient(desiredCapabilities);
+      startClient(capabilities);
     } catch (RuntimeException e) {
       try {
-        stopClient(desiredCapabilities);
+        stopClient(capabilities);
       } catch (Exception ignored) {
         // Ignore the clean-up exception. We'll propagate the original failure.
       }
@@ -136,7 +138,7 @@ public class RemoteWebDriver implements WebDriver, JavascriptExecutor,
     }
 
     try {
-      startSession(desiredCapabilities);
+      startSession(capabilities);
     } catch (RuntimeException e) {
       try {
         quit();
@@ -148,12 +150,12 @@ public class RemoteWebDriver implements WebDriver, JavascriptExecutor,
     }
   }
 
-  public RemoteWebDriver(URL remoteAddress, Capabilities desiredCapabilities) {
-    this(new HttpCommandExecutor(remoteAddress), desiredCapabilities);
+  public RemoteWebDriver(URL remoteAddress, Capabilities capabilities) {
+    this(new HttpCommandExecutor(remoteAddress), capabilities);
   }
 
   private void init(Capabilities capabilities) {
-    capabilities = capabilities == null ? new DesiredCapabilities() : capabilities;
+    capabilities = capabilities == null ? new ImmutableCapabilities() : capabilities;
 
     logger.addHandler(LoggingHandler.getInstance());
 
@@ -210,16 +212,13 @@ public class RemoteWebDriver implements WebDriver, JavascriptExecutor,
     sessionId = new SessionId(opaqueKey);
   }
 
-  protected void startSession(Capabilities desiredCapabilities) {
-    ImmutableMap.Builder<String, Capabilities> paramBuilder =
-        new ImmutableMap.Builder<>();
-    paramBuilder.put("desiredCapabilities", desiredCapabilities);
-    Map<String, ?> parameters = paramBuilder.build();
+  protected void startSession(Capabilities capabilities) {
+    Map<String, ?> parameters = ImmutableMap.of("desiredCapabilities", capabilities);
 
     Response response = execute(DriverCommand.NEW_SESSION, parameters);
 
     Map<String, Object> rawCapabilities = (Map<String, Object>) response.getValue();
-    DesiredCapabilities returnedCapabilities = new DesiredCapabilities();
+    MutableCapabilities returnedCapabilities = new MutableCapabilities();
     for (Map.Entry<String, Object> entry : rawCapabilities.entrySet()) {
       // Handle the platform later
       if (CapabilityType.PLATFORM.equals(entry.getKey()) || "platformName".equals(entry.getKey())) {
@@ -235,7 +234,7 @@ public class RemoteWebDriver implements WebDriver, JavascriptExecutor,
       } else {
         platform = Platform.fromString(platformString);
       }
-    } catch (IllegalArgumentException e) {
+    } catch (WebDriverException e) {
       // The server probably responded with a name matching the os.name
       // system property. Try to recover and parse this.
       platform = Platform.extractFromSysProperty(platformString);
@@ -254,37 +253,49 @@ public class RemoteWebDriver implements WebDriver, JavascriptExecutor,
       returnedCapabilities.setCapability(SUPPORTS_JAVASCRIPT, true);
     }
 
-    capabilities = returnedCapabilities;
+    this.capabilities = returnedCapabilities;
     sessionId = new SessionId(response.getSessionId());
   }
 
   /**
    * Method called before {@link #startSession(Capabilities) starting a new session}. The default
    * implementation is a no-op, but subtypes should override this method to define custom behavior.
+   *
+   * @deprecated No longer used, as behaviour is now in {@link CommandExecutor} instances.
    */
+  @Deprecated
   protected void startClient() {
   }
 
   /**
    * Method called before {@link #startSession(Capabilities) starting a new session}. The default
    * implementation is a no-op, but subtypes should override this method to define custom behavior.
+   *
+   * @deprecated No longer used, as behaviour is now in {@link CommandExecutor} instances.
    */
-  protected void startClient(Capabilities desiredCapabilities) {
+  @Deprecated
+  protected void startClient(Capabilities capabilities) {
     startClient();
   }
 
   /**
    * Method called after executing a {@link #quit()} command. The default implementation is a no-op,
    * but subtypes should override this method to define custom behavior.
+   *
+   * @deprecated No longer used, as behaviour is now in {@link CommandExecutor} instances.
    */
+  @Deprecated
   protected void stopClient() {
   }
 
   /**
    * Method called after executing a {@link #quit()} command. The default implementation is a no-op,
    * but subtypes should override this method to define custom behavior.
+   *
+   * @deprecated No longer used, as behaviour is now in {@link CommandExecutor} instances.
    */
-  protected void stopClient(Capabilities desiredCapbilities) {
+  @Deprecated
+  protected void stopClient(Capabilities capabilities) {
     stopClient();
   }
 

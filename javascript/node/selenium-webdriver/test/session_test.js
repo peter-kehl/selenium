@@ -22,8 +22,6 @@ const chrome = require('../chrome');
 const edge = require('../edge');
 const firefox = require('../firefox');
 const ie = require('../ie');
-const opera = require('../opera');
-const phantomjs = require('../phantomjs');
 const safari = require('../safari');
 const test = require('../lib/test');
 const {Browser} = require('../lib/capabilities');
@@ -39,8 +37,6 @@ test.suite(function(env) {
     [Browser.EDGE, edge.Driver],
     [Browser.FIREFOX, firefox.Driver],
     [Browser.INTERNET_EXPLORER, ie.Driver],
-    [Browser.OPERA, opera.Driver],
-    [Browser.PHANTOM_JS, phantomjs.Driver],
     [Browser.SAFARI, safari.Driver],
   ]);
 
@@ -68,32 +64,4 @@ test.suite(function(env) {
       });
     });
   }
-
-  describe('session management', function() {
-    var driver;
-    test.before(function*() {
-      driver = yield env.builder().build();
-    });
-
-    test.after(function() {
-      return driver.quit();
-    });
-
-    test.it('can connect to an existing session', function*() {
-      yield driver.get(Pages.simpleTestPage);
-      yield assert(driver.getTitle()).equalTo('Hello WebDriver');
-
-      return driver.getSession().then(session1 => {
-        let driver2 = WebDriver.attachToSession(
-            driver.getExecutor(),
-            session1.getId());
-
-        return assert(driver2.getTitle()).equalTo('Hello WebDriver')
-            .then(_ => {
-              let session2Id = driver2.getSession().then(s => s.getId());
-              return assert(session2Id).equalTo(session1.getId());
-            });
-      });
-    });
-  });
 });

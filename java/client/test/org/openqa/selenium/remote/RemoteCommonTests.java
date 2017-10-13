@@ -25,9 +25,7 @@ import org.openqa.selenium.remote.http.W3CHttpResponseCodecTest;
 
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
-    BeanToJsonConverterTest.class,
     DesiredCapabilitiesTest.class,
-    JsonToBeanConverterTest.class,
     JsonHttpCommandCodecTest.class,
     JsonHttpResponseCodecTest.class,
     W3CHttpResponseCodecTest.class
