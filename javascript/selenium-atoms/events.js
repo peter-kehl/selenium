@@ -44,7 +44,7 @@ core.events.shiftKeyDown_ = false;
 /**
  * @type {function(*): !Object}
  */
-var XPCNativeWrapper = XPCNativeWrapper || function(_) {};
+var xpcNativeWrapper = XPCNativeWrapper || function(_) {};
 
 core.events.getEventFactory_ = function(eventName) {
   var eventNameForFactory = '';
@@ -181,7 +181,7 @@ core.events.replaceText_ = function(element, value) {
              bot.userAgent.isEngineVersion(8)) {
     // Firefox 8+ fails with a security error if typing into (XPCNativeWrapper)
     // unwrapped objects
-    XPCNativeWrapper(element).value = actualValue;
+    xpcNativeWrapper(element).value = actualValue;
   } else {
     element.value = actualValue;
   }
